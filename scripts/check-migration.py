@@ -59,3 +59,46 @@ for project in roots:
   mod.make_destination_parents(namespace/'new'/'child')
   assert namespace.stat().st_mode&0o777==0o710
  print(mod.PROJECT,'private umask preserves service traversal, private modes and existing permissions: passed')
+
+# Debian removes an old package-owned directory link during an upgrade. Repair
+# only aliases from a completed migration, validating every record first.
+with tempfile.TemporaryDirectory(prefix='kagnode-dpkg-links-') as tmp:
+ root=Path(tmp);journal=root/'journal.json'
+ for old,new in mod.MAPPINGS:
+  src=root/old.lstrip('/');src.mkdir(parents=True);(src/'keep').write_text(old)
+ def call(*args,ok=True):
+  out=subprocess.run(['python3',str(script),'--root',tmp,'--journal',str(journal),*args],capture_output=True,text=True)
+  assert (out.returncode==0)==ok,out.stdout+out.stderr
+ call('--repair-links',ok=False)
+ call('--apply')
+ paths=[root/old.lstrip('/') for old,new in mod.MAPPINGS[:2]]
+ target=root/mod.MAPPINGS[0][1].lstrip('/')
+ (target/'after').write_text('post-upgrade content')
+ for path in paths:path.unlink()
+ call('--repair-links');call('--repair-links')
+ for old,new in mod.MAPPINGS:
+  assert (root/old.lstrip('/')).resolve()==(root/new.lstrip('/')).resolve()
+  assert (root/new.lstrip('/')/'keep').read_text()==old
+ assert (target/'after').read_text()=='post-upgrade content'
+ # A conflict anywhere prevents all repairs; unrelated contents survive.
+ for path in paths:path.unlink()
+ paths[1].mkdir();(paths[1]/'unrelated').write_text('keep')
+ call('--repair-links',ok=False)
+ assert not paths[0].exists() and not paths[0].is_symlink()
+ assert (paths[1]/'unrelated').read_text()=='keep'
+ (paths[1]/'unrelated').unlink();paths[1].rmdir()
+ paths[1].symlink_to(root/'unrelated')
+ call('--repair-links',ok=False)
+ assert not paths[0].is_symlink() and paths[1].is_symlink()
+ paths[1].unlink()
+ original=json.loads(journal.read_text())
+ for invalid in ('incomplete','wrong-pair','missing-original'):
+  data=json.loads(json.dumps(original))
+  if invalid=='incomplete':data['status']='planned'
+  elif invalid=='wrong-pair':data['records'][-1]['new']='/unrelated'
+  else:data['records'][-1]['backup']='unrelated'
+  journal.write_text(json.dumps(data));call('--repair-links',ok=False)
+  assert not paths[0].is_symlink() and not paths[1].is_symlink()
+ journal.write_text(json.dumps(original))
+ call('--repair-links');call('--rollback');call('--repair-links',ok=False)
+ print(mod.PROJECT,'post-package aliases, current data, idempotence and all-record conflict/journal validation: passed')

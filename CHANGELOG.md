@@ -5,6 +5,8 @@ preparation retains legacy launchers through a compatibility link, rejects
 conflicting trees, and keeps new code paths readable under a private umask.
 Legacy build-only configuration is also excluded when reusing an image cache.
 Existing published images, Client sessions and saved work are unchanged.
+Debian upgrades also restore package-owned compatibility links from a verified
+migration journal, without activating services or replacing existing data.
 
 ## 3.1.16-beta.2
 
