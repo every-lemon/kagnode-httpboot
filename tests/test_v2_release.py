@@ -89,6 +89,10 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual((root/'first.tar.gz').read_bytes(),(root/'second.tar.gz').read_bytes())
             with tarfile.open(root/'first.tar.gz') as archive:
                 self.assertEqual(archive.extractfile('README.md').read(),(ROOT/'docs/README-public.md').read_bytes())
+                # A downloaded source archive must render its README offline too.
+                logo = 'assets/kagnode-wordmark.svg'
+                self.assertIn(logo.encode(), archive.extractfile('README.md').read())
+                self.assertEqual(archive.extractfile(logo).read(), (ROOT/logo).read_bytes())
                 self.assertFalse(any(name.startswith('private/') or '__pycache__' in name for name in archive.getnames()))
 
     def test_debian_versions_order_beta_rc_and_final(self):

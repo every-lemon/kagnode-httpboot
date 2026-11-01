@@ -1,4 +1,4 @@
-# HTTP Boot 3.1.15-beta.1 installation
+# KagNode HTTP Boot 3.1.16-beta.2 installation
 
 This beta supports Ubuntu 24.04 Servers and amd64 Builders. Virtual boot
 qualification is separate from physical firmware and device validation.
@@ -8,22 +8,31 @@ as an installation shortcut.
 
 ## Release downloads
 
-Download assets from the `3.1.15-beta.1` GitHub release and run `sha256sum -c SHA256SUMS`
+Download all assets from the [3.1.16-beta.2 release](https://github.com/every-lemon/kagnode-httpboot/releases/tag/v3.1.16-beta.2) and run `sha256sum -c SHA256SUMS`
 in the directory containing the downloaded files. Install one package:
 
-    sudo apt install ./httpboot-server_3.1.15-beta.1_all.deb
+    sudo apt install ./server.deb
     # Or, on a full amd64 Ubuntu Builder:
-    sudo apt install ./httpboot-server-builder_3.1.15-beta.1_amd64.deb
+    sudo apt install ./builder.deb
 
-The Debian package version is `3.1.15~beta.1`; the public release name is
-`3.1.15-beta.1`. The two package variants are alternatives. No accounts, credentials
+The Debian package version is `3.1.16~beta.2`; the public release name is
+`3.1.16-beta.2`. The two package variants are alternatives. The release also includes
+the Builder installer `builder.sh` and the allowlisted `source.tar.gz` archive. No accounts, credentials
 or desktop images are included. Generate images locally as described below.
 
-Existing `3.1.15~dev14` installations sort newer in Debian's version ordering.
-Back up the database and package, review the release, and explicitly install this
-beta package with `sudo dpkg -i /path/to/httpboot-server_3.1.15-beta.1_all.deb`.
-Check services and account/session preservation before removing the old package.
-Do not restore an old database over later verified saves during package rollback.
+This preview introduces project-scoped paths. Existing installations require the
+explicit procedure in [PATHS.md](../PATHS.md), even though 3.1.16 sorts after 3.1.15
+in Debian's version ordering. Review the dry-run, verify backups, and complete
+Client saves before a maintenance window. Never force-release an active session
+or overwrite pending RAM work to make an upgrade possible. Install the matching
+package only after migration, then check service health, identities and saves.
+Do not restore an old database over later verified saves during rollback.
+
+The migration tool deliberately refuses existing symlink layouts. A Server with
+its state on a separate data disk needs a reviewed mapping that retains that disk;
+do not replace its state symlink with an empty directory or copy data to the boot
+disk to bypass the guard. Keep the currently qualified Client image and recovery
+media until the replacement image passes its own boot and hardware checks.
 
 ## Roles and prerequisites
 
