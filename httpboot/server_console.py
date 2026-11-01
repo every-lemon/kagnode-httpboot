@@ -2,11 +2,12 @@
 import hmac
 import json
 import secrets
+import sqlite3
 import sys
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from common import atomic
-from control_transport import issue
+from control_transport import issue,storage_failure
 
 HTML=r'''<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer">
 <title>HTTP Boot Server</title><style>body{font:16px system-ui;max-width:960px;margin:40px auto;background:#111;color:#eee}button,input{font:inherit;margin:6px;padding:8px}pre{white-space:pre-wrap}</style>
@@ -30,6 +31,7 @@ def serve(authority,pki,port=8081):
         def do_POST(self):self.respond()
         def respond(self):
             self.connection.settimeout(10)
+            retry_after=None
             if self.command=='GET' and self.path=='/':
                 self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8')
                 self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-ancestors 'none'")
@@ -37,7 +39,7 @@ def serve(authority,pki,port=8081):
             try:
                 if not hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+token):raise ValueError('Local console credential required')
                 if self.command=='GET' and self.path=='/api/state':
-                    with authority.db() as db:
+                    with authority.db(write=False) as db:
                         clients=[dict(row) for row in db.execute('SELECT id,hardware,code,approved,expires FROM devices')]
                     from boot_reports import sanitize
                     reports=[]
@@ -46,7 +48,7 @@ def serve(authority,pki,port=8081):
                         except (ValueError,OSError):continue
                     from boot_reports import health
                     from approval_wizard import approval_defaults
-                    with authority.db() as db:accounts=[dict(row) for row in db.execute('SELECT name,system_admin FROM accounts ORDER BY uid')]
+                    with authority.db(write=False) as db:accounts=[dict(row) for row in db.execute('SELECT name,system_admin FROM accounts ORDER BY uid')]
                     result={'health':'Server authority ready','clients':clients,'reports':reports,'boothealth':health(authority),'accounts':accounts,'defaults':approval_defaults(authority)}
                 elif self.command=='POST' and self.path=='/api/approve':
                     size=int(self.headers.get('Content-Length','0'))
@@ -55,9 +57,12 @@ def serve(authority,pki,port=8081):
                     result={'device':authority.approve(data['code'],lambda csr,name:issue(pki,csr,name),data['accounts'])}
                 else:raise ValueError('Unknown console operation')
                 raw=json.dumps(result).encode();status=200
+            except sqlite3.OperationalError as error:
+                body,status,retry_after=storage_failure(error);raw=json.dumps(body).encode();self.close_connection=True
             except (ValueError,KeyError,OSError) as error:raw=json.dumps({'error':str(error)}).encode();status=400
             self.send_response(status);self.send_header('Content-Type','application/json')
             self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store')
+            if retry_after:self.send_header('Retry-After',retry_after)
             self.end_headers();self.wfile.write(raw)
     if sys.stdout.isatty():print(f'Open http://127.0.0.1:{port}/#{token}',flush=True)
     else:print(f'HTTP Boot local console listening at http://127.0.0.1:{port}/; credential stored in the protected Server state',flush=True)

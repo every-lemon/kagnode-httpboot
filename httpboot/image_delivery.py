@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlsplit
 from common import RELEASE, dump, load, recovery_size_ok, sha256
-from control_transport import Handler
+from control_transport import Handler,storage_failure
 
 ARTIFACTS={'boot.efi','recovery.efi','recovery.squashfs','filesystem.squashfs'}
 
@@ -106,6 +106,9 @@ class Transfer:
 
 class ImageHandler(Handler):
     def do_GET(self):
+        # Downloads run in the minimal Client environment; database errors are
+        # handled only by the Server's HTTP handler.
+        import sqlite3
         self._streaming=False
         if not self.path.startswith('/v2/image/'):
             return super().do_GET()
@@ -136,6 +139,14 @@ class ImageHandler(Handler):
                     block=stream.read(1024*1024)
                     if not block:break
                     self.wfile.write(block)
+        except sqlite3.OperationalError as error:
+            self.close_connection=True
+            body,status,retry_after=storage_failure(error)
+            if not self._streaming:
+                raw=json.dumps(body).encode();self.send_response(status)
+                self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)))
+                if retry_after:self.send_header('Retry-After',retry_after)
+                self.end_headers();self.wfile.write(raw)
         except (ValueError,OSError) as error:
             # Do not expose private filesystem paths or issue a second response after headers.
             if not getattr(self,'_streaming',False):

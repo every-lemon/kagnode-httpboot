@@ -7,6 +7,7 @@ import secrets
 import sqlite3
 import subprocess
 import time
+import weakref
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
@@ -68,11 +69,19 @@ class Authority:
         self.database.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         # Readers must not queue behind snapshot writers or fsync-heavy saves.
         # Keep durable writes serialized; WAL readers see only committed state.
-        setup=sqlite3.connect(self.database,timeout=15)
+        setup=sqlite3.connect(self.database,timeout=15,check_same_thread=False)
         try:
             if setup.execute('PRAGMA journal_mode').fetchone()[0].lower()!='wal':
                 setup.execute('PRAGMA journal_mode=WAL')
-        finally:setup.close()
+        except BaseException:
+            setup.close()
+            raise
+        # Keep one idle connection for this authority's lifetime. Closing the
+        # last connection checkpoints and removes the WAL; doing that after
+        # every request forces extra durable writes and blocks other Clients.
+        # This connection holds no transaction. Request connections retain
+        # SQLite's FULL synchronous setting and their own transaction scope.
+        self._database_cleanup=weakref.finalize(self,setup.close)
         with self.db() as db:
             db.executescript('''
             CREATE TABLE IF NOT EXISTS devices (
@@ -100,12 +109,19 @@ class Authority:
             from client_policy import FLATHUB
             db.execute("INSERT OR IGNORE INTO settings VALUES ('sources',?)",(json.dumps([FLATHUB]),))
         self.database.chmod(0o600)
+        # Open the WAL handle after the schema exists. Merely opening an idle
+        # SQLite connection does not keep that handle alive between requests.
+        setup.execute('SELECT COUNT(*) FROM settings').fetchone()
         from snapshot_store import Snapshots
         from image_delivery import Images
         self.snapshots=Snapshots(self)
         self.images=Images(self)
         from session_leases import Leases
         self.leases=Leases(self)
+
+    def close(self):
+        """Release the idle WAL connection; active transactions remain independent."""
+        self._database_cleanup()
 
     @contextmanager
     def db(self,write=True):

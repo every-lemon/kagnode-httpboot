@@ -6,7 +6,7 @@ from control_transport import issue
 
 
 def approval_defaults(authority):
-    with authority.db() as db:
+    with authority.db(write=False) as db:
         row=db.execute("SELECT value FROM settings WHERE key='approval-defaults'").fetchone()
     return json.loads(row[0]) if row else []
 

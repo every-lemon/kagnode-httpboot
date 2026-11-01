@@ -8,6 +8,12 @@ Existing published images, Client sessions and saved work are unchanged.
 Debian upgrades also restore package-owned compatibility links from a verified
 migration journal, without activating services or replacing existing data.
 
+The Server keeps an idle SQLite connection to avoid checkpointing and recreating
+the write-ahead log after every request. Durable commits and independent read
+transactions are retained. Storage contention returns a structured temporary-busy
+response; other database errors return a generic storage error. Clients do not
+automatically replay submissions after an error, and pending saves remain pending.
+
 ## 3.1.16-beta.2
 
 Larger canonical ASCII startup logo, mixed-case wordmark, responsive terminal sizes and blue/plain output. Boot behavior and deployment remain unchanged.

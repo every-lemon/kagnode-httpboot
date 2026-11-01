@@ -100,6 +100,17 @@ To move an account after it has logged out, run `httpboot-server unassign alice
 OLD_CLIENT_ID`, then `httpboot-server assign alice NEW_CLIENT_ID`. Removing an
 assignment refuses an active session; it never silently takes over pending RAM work.
 
+## Server storage and backups
+
+Server database commits remain durable while its write-ahead log stays open across
+requests. A live database backup must use SQLite's backup API; copying only
+`authority.db` can omit recently committed changes in `authority.db-wal`. For a
+filesystem backup, stop all writers and retain the complete Server state, including
+any journal files. Do not remove WAL files manually. A temporary storage-busy
+response leaves the operation unconfirmed; check its status before submitting it
+again. The Client keeps pending saves in RAM and never treats that response as a
+successful save.
+
 ## Image preparation and publication
 
 On a full Builder, install prerequisites listed by the combined package and run:

@@ -1,6 +1,7 @@
 """Small certificate-authenticated JSON transport for fixed httpboot operations."""
 import http.client
 import json
+import logging
 import os
 import re
 import ssl
@@ -15,6 +16,24 @@ from urllib.parse import urlsplit
 from common import atomic, dump, load, run
 
 MAX_BODY = 8 * 1024 * 1024
+
+def storage_failure(error):
+    """Describe a storage failure without exposing SQL or private paths."""
+    code=getattr(error,'sqlite_errorcode',None)
+    if isinstance(code,int):
+        busy=(code&255) in (5,6) # SQLITE_BUSY / SQLITE_LOCKED, including extended codes.
+    else:
+        # Python 3.10 has no sqlite_errorcode attribute. Keep the package's
+        # supported minimum version without returning the underlying message.
+        busy=str(error).split(':',1)[0] in ('database is locked','database table is locked','database schema is locked')
+    status=503 if busy else 500
+    logging.getLogger(__name__).warning('HTTP Boot storage failure: sqlite_code=%s http_status=%s',
+                                       code if isinstance(code,int) else 'unknown',status)
+    if busy:
+        return {'error':'Server storage is busy. Check the operation status before trying again.',
+                'code':'storage_busy'},status,'1'
+    return {'error':'The Server could not complete the storage operation.',
+            'code':'storage_unavailable'},status,None
 
 def identity(value):
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}', value):
@@ -119,7 +138,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):self.respond()
     def do_POST(self):self.respond()
     def respond(self):
+        # The Client also imports this module in its minimal initramfs. SQLite
+        # belongs to the Server request path, not Client bootstrap dependencies.
+        import sqlite3
         self.connection.settimeout(30)
+        retry_after=None
         try:
             cert=self.connection.getpeercert()
             names=[v for rdn in cert.get('subject',()) for k,v in rdn if k=='commonName'] if cert else []
@@ -132,10 +155,15 @@ class Handler(BaseHTTPRequestHandler):
             data=json.loads(self.rfile.read(size)) if size else None
             result=self.server.app(self.command,self.path,peer,self.client_address[0],data)
             raw=json.dumps(result).encode();self.send_response(200)
+        except sqlite3.OperationalError as exc:
+            self.close_connection=True
+            body,status,retry_after=storage_failure(exc)
+            raw=json.dumps(body).encode();self.send_response(status)
         except (ValueError,OSError,KeyError,TypeError) as exc:
             self.close_connection=True
             raw=json.dumps({'error':str(exc)}).encode();self.send_response(400)
         self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)))
+        if retry_after:self.send_header('Retry-After',retry_after)
         self.end_headers();self.wfile.write(raw)
 
 class TLSHTTPServer(ThreadingHTTPServer):
@@ -172,6 +200,11 @@ class Server(TLSHTTPServer):
         context.verify_mode=ssl.CERT_OPTIONAL
         self.folder=folder;self.certificate_stamp=(folder/'server.pem').stat().st_mtime_ns;self.context_lock=threading.Lock()
         super().__init__(address,handler,context)
+    def server_close(self):
+        try:super().server_close()
+        finally:
+            close=getattr(self.app,'close',None)
+            if callable(close):close()
     def tls_context(self):
         with self.context_lock:
             stamp=(self.folder/'server.pem').stat().st_mtime_ns
