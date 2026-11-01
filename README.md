@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/every-lemon/kagnode-logos/main/svg/http-boot-light.svg" width="440" alt="KagNode. HTTP Boot"></p>
+<p align="center"><img src="assets/kagnode-wordmark.svg" width="440" alt="KagNode. HTTP Boot"></p>
 
 # KagNode HTTP Boot
 
