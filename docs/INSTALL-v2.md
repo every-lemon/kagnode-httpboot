@@ -1,6 +1,6 @@
-# KagNode HTTP Boot 3.1.16-beta.2 installation
+# KagNode HTTP Boot 3.1.16 installation
 
-This beta supports Ubuntu 24.04 Servers and amd64 Builders. Virtual boot
+This release targets Ubuntu 24.04 Servers and amd64 Builders. Virtual boot
 qualification is separate from physical firmware and device validation.
 Use a separate test Server. Existing installations retain the legacy service until
 all enrolled Clients have moved; never remove their existing download or NFS paths
@@ -8,19 +8,19 @@ as an installation shortcut.
 
 ## Release downloads
 
-Download all assets from the [3.1.16-beta.2 release](https://github.com/every-lemon/kagnode-httpboot/releases/tag/v3.1.16-beta.2) and run `sha256sum -c SHA256SUMS`
+Download all assets from the [3.1.16 release](https://github.com/every-lemon/kagnode-httpboot/releases/tag/v3.1.16) and run `sha256sum -c SHA256SUMS`
 in the directory containing the downloaded files. Install one package:
 
     sudo apt install ./server.deb
     # Or, on a full amd64 Ubuntu Builder:
     sudo apt install ./builder.deb
 
-The Debian package version is `3.1.16~beta.2`; the public release name is
-`3.1.16-beta.2`. The two package variants are alternatives. The release also includes
+The Debian package version is `3.1.16`; the public release name is
+`3.1.16`. The two package variants are alternatives. The release also includes
 the Builder installer `builder.sh` and the allowlisted `source.tar.gz` archive. No accounts, credentials
 or desktop images are included. Generate images locally as described below.
 
-This preview introduces project-scoped paths. Existing installations require the
+This release uses project-scoped paths. Existing installations require the
 explicit procedure in [PATHS.md](../PATHS.md), even though 3.1.16 sorts after 3.1.15
 in Debian's version ordering. Review the dry-run, verify backups, and complete
 Client saves before a maintenance window. Never force-release an active session
