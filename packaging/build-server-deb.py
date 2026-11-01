@@ -14,7 +14,7 @@ MODULES=('product_version.py','client_power.py','session_leases.py','client_poli
          'persistence_v2.py','restore_progress.py','client_agent.py','client_worker.py','client_ui.py','flatpak_content.py',
          'schedule_policy.py','migration_v2.py','release_cleanup.py','server_setup.py','server_console.py',
          'printers.py','driver_imports.py','usb_importer.py','sober_check.py','boot_reports.py','boot_client_v2.py',
-         'build_public.py','build_support.py','recovery.py','recovery_browser.py','build_cache.py')
+         'build_public.py','image_paths.py','build_support.py','recovery.py','recovery_browser.py','build_cache.py')
 CLIENT=('power_guard.py','httpboot-power-guard.service','desktop_state.py','pam-httpboot.c','init','init-v2-rest','boot-guard.sh','initramfs-hook','initramfs-v2-hook','network.sh','network.py','httpboot-network.service','wifi.sh','dhclient-script',
         'tui.sh','boot-checks.sh','age-unlock.c','pam-session-v2','httpboot-client-v2.service','httpboot-saver-v2.service')
 

@@ -8,8 +8,8 @@ Before=display-manager.service cups.service
 [Service]
 Type=notify
 TimeoutStartSec=infinity
-ExecStart=/usr/bin/python3 /usr/local/lib/httpboot/client_agent.py serve
-ExecStop=/usr/bin/python3 /usr/local/lib/httpboot/client_power.py
+ExecStart=/usr/bin/python3 /opt/kagnode/httpboot/client/client_agent.py serve
+ExecStop=/usr/bin/python3 /opt/kagnode/httpboot/client/client_power.py
 TimeoutStopSec=1800
 Restart=on-failure
 RestartSec=10

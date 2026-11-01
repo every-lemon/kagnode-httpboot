@@ -185,8 +185,8 @@ def guest(efi,source,identity,manifest,work,recovery,password=None,timeout=2400)
                         elif login_stage==2 and b'Password:' in log:
                             process.stdin.write(password.encode()+b'\r');process.stdin.flush();login_stage=3
                         elif login_stage==3 and b'bootcheck@' in log:
-                            command="if test \"$(id -u)\" = 1100 && test \"$(cat \"$HOME/Documents/restore.txt\")\" = qualification-restore-fixture && printf '%s' qualification-save-fixture >\"$HOME/Documents/check.txt\" && python3 /usr/local/lib/httpboot/client_worker.py save; then printf '\\n%s%s\\n' HTTPBOOT_ASSIGNED_ LOGIN_VERIFIED; else printf '\\n%s%s\\n' HTTPBOOT_LOGIN_ CHECK_FAILED; fi\r"
-                            check="import signal,sys;sys.path.insert(0,'/usr/local/lib/httpboot');from client_agent import rpc;p=rpc('state')['status']['general'];assert signal.getsignal(signal.SIGINT)!=signal.SIG_IGN;assert p.get('stage')=='complete' and p['bytes_done']==p['bytes_total']"
+                            command="if test \"$(id -u)\" = 1100 && test \"$(cat \"$HOME/Documents/restore.txt\")\" = qualification-restore-fixture && printf '%s' qualification-save-fixture >\"$HOME/Documents/check.txt\" && python3 /opt/kagnode/httpboot/client/client_worker.py save; then printf '\\n%s%s\\n' HTTPBOOT_ASSIGNED_ LOGIN_VERIFIED; else printf '\\n%s%s\\n' HTTPBOOT_LOGIN_ CHECK_FAILED; fi\r"
+                            check="import signal,sys;sys.path.insert(0,'/opt/kagnode/httpboot/client');from client_agent import rpc;p=rpc('state')['status']['general'];assert signal.getsignal(signal.SIGINT)!=signal.SIG_IGN;assert p.get('stage')=='complete' and p['bytes_done']==p['bytes_total']"
                             command=command.replace('if test ','if python3 -c '+shlex.quote(check)+' && test ',1)
                             process.stdin.write(command.encode());process.stdin.flush();login_stage=4
                         elif login_stage==4 and b'HTTPBOOT_ASSIGNED_LOGIN_VERIFIED' in log:
@@ -196,7 +196,7 @@ def guest(efi,source,identity,manifest,work,recovery,password=None,timeout=2400)
                         elif login_stage==6 and b'Password:' in log[logout_offset:]:
                             logout_offset=len(log);process.stdin.write(password.encode()+b'\r');process.stdin.flush();login_stage=7
                         elif login_stage==7 and b'bootcheck@' in log[logout_offset:]:
-                            command="python3 -c \"import sys; sys.path.insert(0,'/usr/local/lib/httpboot'); from client_agent import rpc; rpc('power',operation='poweroff'); print('HTTPBOOT_POWER_'+'REQUESTED')\"\r"
+                            command="python3 -c \"import sys; sys.path.insert(0,'/opt/kagnode/httpboot/client'); from client_agent import rpc; rpc('power',operation='poweroff'); print('HTTPBOOT_POWER_'+'REQUESTED')\"\r"
                             process.stdin.write(command.encode());process.stdin.flush();login_stage=8
                         elif login_stage==8 and b'HTTPBOOT_POWER_REQUESTED' in log and b'Power down' in log:return {'interrupt_verified':interrupt_sent}
                         if login_stage==8:
@@ -208,7 +208,7 @@ def guest(efi,source,identity,manifest,work,recovery,password=None,timeout=2400)
                             raise ValueError('Assigned account login, restore or authenticated save failed')
                     if b'Kernel panic' in log or b'Freezing execution' in log:raise ValueError('Production v2 kernel/systemd startup failed')
                 if not recovery and login_stage==8 and time.monotonic()-last_power_status>=10:
-                    command="python3 -c \"import sys,json; sys.path.insert(0,'/usr/local/lib/httpboot'); from client_agent import rpc; print('HTTPBOOT_POWER_'+'STATUS='+json.dumps(rpc('state')['power']))\"\r"
+                    command="python3 -c \"import sys,json; sys.path.insert(0,'/opt/kagnode/httpboot/client'); from client_agent import rpc; print('HTTPBOOT_POWER_'+'STATUS='+json.dumps(rpc('state')['power']))\"\r"
                     try:process.stdin.write(command.encode());process.stdin.flush()
                     except BrokenPipeError:
                         if process.poll()==0 and b'HTTPBOOT_POWER_REQUESTED' in log:return {'interrupt_verified':interrupt_sent}

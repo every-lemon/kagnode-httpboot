@@ -2,7 +2,7 @@
 """pam_exec entry point; credentials are supplied only to the root Client service."""
 import os
 import sys
-sys.path.insert(0,'/usr/local/lib/httpboot')
+sys.path.insert(0,'/opt/kagnode/httpboot/client')
 from client_agent import rpc
 
 def message_interval(message, graphical):

@@ -14,7 +14,7 @@ for program in /bin/bash /usr/bin/age /usr/bin/curl /usr/bin/sha256sum /usr/bin/
     copy_exec "$program"
 done
 copy_exec /lib/systemd/systemd-udevd
-copy_exec /usr/local/lib/httpboot/age-unlock /httpboot/age-unlock
+copy_exec /opt/kagnode/httpboot/client/age-unlock /httpboot/age-unlock
 mkdir -p "$DESTDIR/lib/terminfo" "$DESTDIR/usr/share/terminfo"
 if [ -d /lib/terminfo ];then cp -a /lib/terminfo/. "$DESTDIR/lib/terminfo/";fi
 if [ -d /usr/share/terminfo ];then cp -a /usr/share/terminfo/. "$DESTDIR/usr/share/terminfo/";fi
@@ -25,11 +25,11 @@ chmod 1777 "$DESTDIR/tmp"
 # preserves existing files, so use a unique path for GNU's signal options.
 copy_exec /usr/bin/env /httpboot/boot-env
 cp /etc/kagnode/httpboot-builder/boot.conf /etc/kagnode/httpboot-builder/modules "$DESTDIR/httpboot/"
-cp /usr/local/lib/httpboot/wifi.sh /usr/local/lib/httpboot/dhclient-script "$DESTDIR/httpboot/"
-cp /usr/local/lib/httpboot/tui.sh "$DESTDIR/httpboot/"
-cp /usr/local/lib/httpboot/boot-guard.sh "$DESTDIR/httpboot/"
-cp /usr/local/lib/httpboot/network.sh "$DESTDIR/httpboot/"
-cp /usr/local/lib/httpboot/boot-checks.sh "$DESTDIR/httpboot/"
+cp /opt/kagnode/httpboot/client/wifi.sh /opt/kagnode/httpboot/client/dhclient-script "$DESTDIR/httpboot/"
+cp /opt/kagnode/httpboot/client/tui.sh "$DESTDIR/httpboot/"
+cp /opt/kagnode/httpboot/client/boot-guard.sh "$DESTDIR/httpboot/"
+cp /opt/kagnode/httpboot/client/network.sh "$DESTDIR/httpboot/"
+cp /opt/kagnode/httpboot/client/boot-checks.sh "$DESTDIR/httpboot/"
 if [ -d /etc/kagnode/httpboot-builder/client ]; then cp -a /etc/kagnode/httpboot-builder/client "$DESTDIR/httpboot/"; fi
 printf 'timeout 25;\nretry 5;\n' >"$DESTDIR/httpboot/dhclient.conf"
 if [ -f /etc/kagnode/httpboot-builder/wifi.age ]; then cp /etc/kagnode/httpboot-builder/wifi.age "$DESTDIR/httpboot/"; fi
@@ -42,5 +42,5 @@ manual_add_modules overlay
 for module in usb_storage uas sd_mod vfat nls_cp437 nls_iso8859_1 mmc_block sdhci_pci i8042 atkbd usbhid hid_generic hid_multitouch; do manual_add_modules "$module"; done
 while read -r module; do manual_add_modules "$module"; done </etc/kagnode/httpboot-builder/modules
 # Replace init last; this hook is named zzz-httpboot by the builder.
-cp /usr/local/lib/httpboot/init "$DESTDIR/init"
+cp /opt/kagnode/httpboot/client/init "$DESTDIR/init"
 chmod 755 "$DESTDIR/httpboot/network.sh" "$DESTDIR/init" "$DESTDIR/httpboot/wifi.sh" "$DESTDIR/httpboot/dhclient-script"

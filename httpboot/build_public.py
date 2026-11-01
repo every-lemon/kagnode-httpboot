@@ -10,6 +10,7 @@ from pathlib import Path
 from common import atomic,dump,load,run,safe_url,sha256,validate_config
 from build_support import Stages,prepare_resolver,parallelism
 from product_version import VERSION
+from image_paths import client_library, public_directory
 
 SOURCE=Path(__file__).resolve().parents[1]
 MODULES=('loop','squashfs','overlay','usb_storage','uas','sd_mod','vfat','nls_cp437','nls_iso8859_1',
@@ -31,7 +32,7 @@ CLIENT_INPUTS=('init','init-v2-rest','boot-guard.sh','initramfs-hook','initramfs
 
 def image_recipe(source=SOURCE):
     source=Path(source)
-    inputs=[source/'httpboot/build_public.py']
+    inputs=[source/'httpboot/build_public.py', source/'httpboot/image_paths.py']
     inputs.extend(source/'httpboot'/name for name in CLIENT_MODULES)
     inputs.extend(source/'client'/name for name in sorted(CLIENT_INPUTS))
     inputs.extend(source/'httpboot/assets/fonts'/name for name in ('DejaVuSansMono.ttf','DejaVuSansMono-LICENSE.txt'))
@@ -57,29 +58,31 @@ def finalize_runtime_resolver(root):
 
 
 def install_client(root):
-    lib=root/'usr/local/lib/httpboot';lib.mkdir(parents=True,exist_ok=True)
-    for name in CLIENT_MODULES:shutil.copyfile(SOURCE/'httpboot'/name,lib/name)
-    fonts=root/'usr/local/share/fonts/httpboot';fonts.mkdir(parents=True,exist_ok=True)
+    lib=client_library(root)
+    for name in CLIENT_MODULES:
+        shutil.copyfile(SOURCE/'httpboot'/name,lib/name);(lib/name).chmod(0o644)
+    fonts=root/'usr/local/share/fonts/kagnode/httpboot';public_directory(fonts)
     for font in ('DejaVuSansMono.ttf','DejaVuSansMono-LICENSE.txt'):
         shutil.copyfile(SOURCE/'httpboot/assets/fonts'/font,fonts/font)
+        (fonts/font).chmod(0o644)
     for name in ('httpboot-client-v2.service','httpboot-network.service','network.py','pam-session-v2','desktop_state.py','power_guard.py','httpboot-power-guard.service'):
-        target=root/('etc/systemd/system' if name.endswith('.service') else 'usr/local/lib/httpboot')/name
+        target=root/('etc/systemd/system' if name.endswith('.service') else 'opt/kagnode/httpboot/client')/name
         target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(SOURCE/'client'/name,target);target.chmod(0o755 if not name.endswith('.service') else 0o644)
-    target=root/'etc/systemd/user/httpboot-saver-v2.service';target.parent.mkdir(parents=True,exist_ok=True)
-    shutil.copyfile(SOURCE/'client/httpboot-saver-v2.service',target)
-    wanted=target.parent/'default.target.wants';wanted.mkdir(exist_ok=True)
+    target=root/'etc/systemd/user/httpboot-saver-v2.service';public_directory(target.parent)
+    shutil.copyfile(SOURCE/'client/httpboot-saver-v2.service',target);target.chmod(0o644)
+    wanted=target.parent/'default.target.wants';public_directory(wanted)
     link=wanted/target.name
     if not link.exists():link.symlink_to('../'+target.name)
     atomic(root/'etc/systemd/system/display-manager.service.d/httpboot.conf','[Unit]\nRequires=httpboot-client-v2.service\nAfter=httpboot-client-v2.service\n',0o644)
     pam=root/'etc/pam.d/common-session'
     shutil.copyfile(SOURCE/'client/pam-httpboot.c',lib/'pam-httpboot.c')
     run(['chroot',root,'cc','-shared','-fPIC','-O2','-Wall','-Wextra','-o',
-         '/usr/local/lib/httpboot/pam-httpboot.so','/usr/local/lib/httpboot/pam-httpboot.c','-lpam'])
+         '/opt/kagnode/httpboot/client/pam-httpboot.so','/opt/kagnode/httpboot/client/pam-httpboot.c','-lpam'])
     text='\n'.join(line for line in pam.read_text().splitlines() if 'pam-session-v2' not in line and 'pam-httpboot.so' not in line)
-    entry='session requisite /usr/local/lib/httpboot/pam-httpboot.so\n'
+    entry='session requisite /opt/kagnode/httpboot/client/pam-httpboot.so\n'
     # Restore before pam_systemd/keyring can start user processes.
     atomic(pam,entry+text+'\n',0o644)
-    desktop='[Desktop Entry]\nType=Application\nName=HTTP Boot\nExec=python3 /usr/local/lib/httpboot/client_ui.py\nIcon=system-software-update\nCategories=System;\n'
+    desktop='[Desktop Entry]\nType=Application\nName=HTTP Boot\nExec=python3 /opt/kagnode/httpboot/client/client_ui.py\nIcon=system-software-update\nCategories=System;\n'
     atomic(root/'usr/share/applications/httpboot.desktop',desktop,0o644)
     (root/'etc/xdg/autostart/httpboot.desktop').unlink(missing_ok=True)
     atomic(root/'etc/systemd/system/httpboot-startup-report.service','[Unit]\nDescription=Report verified HTTP Boot startup\nAfter=httpboot-client-v2.service display-manager.service\nRequires=httpboot-client-v2.service display-manager.service\n[Service]\nType=oneshot\nExecStart=/bin/sh -c \'systemctl is-active --quiet display-manager.service && echo HTTPBOOT_SYSTEMD_STARTED >/dev/console\'\n[Install]\nWantedBy=graphical.target\n',0o644)
@@ -114,6 +117,7 @@ def remove_software_guis(root,ch):
 
 
 def strip_private_accounts(root,config):
+    client_library(root)
     names={u['name'] for u in validate_config(load(config))['users']}
     for relative in ('etc/passwd','etc/shadow','etc/group','etc/gshadow'):
         file=root/relative;lines=[]
@@ -137,7 +141,7 @@ def strip_private_accounts(root,config):
     (root/'etc/httpboot-client.json').unlink(missing_ok=True)
     # Existing Chrome desktop entries may retain this compatibility launcher.
     # Restores and closed-app saves now belong to the v2 session service.
-    atomic(root/'usr/local/lib/httpboot/chrome-launch','#!/bin/sh\nexec /usr/bin/google-chrome-stable "$@"\n',0o755)
+    atomic(root/'opt/kagnode/httpboot/client/chrome-launch','#!/bin/sh\nexec /usr/bin/google-chrome-stable "$@"\n',0o755)
     for name in ('httpboot-storage.service','httpboot-storage-health.service','httpboot-storage-health.timer','httpboot-control.service','httpboot-shutdown-guard.service'):
         for directory in ('multi-user.target.wants','graphical.target.wants','timers.target.wants'):
             (root/'etc/systemd/system'/directory/name).unlink(missing_ok=True)
@@ -168,7 +172,7 @@ def audit_root(root):
         password=line.split(':')[1]
         if password and not password.startswith(('!','*')):raise ValueError('Public image contains an active password hash')
     if any((root/'home').iterdir()):raise ValueError('Public image contains a user home')
-    for directory in (root/'etc/kagnode/httpboot',root/'run',root/'root/.ssh'):
+    for directory in (root/'etc/kagnode/httpboot',root/'etc/httpboot',root/'run',root/'root/.ssh'):
         if directory.exists() and any(p.is_file() for p in directory.rglob('*')) and directory!=root/'run':
             raise ValueError('Public image contains deployment-specific state')
 
@@ -266,12 +270,12 @@ def build(args):
             mounted.clear()
             jobs=parallelism(args.jobs)
             run(['mksquashfs',root,args.output/'filesystem.squashfs','-noappend','-comp','zstd','-Xcompression-level','6','-processors',jobs,
-                 '-wildcards','-e','boot','etc/kagnode/httpboot-builder','tmp/*','var/tmp/*','var/log/*','run/*','proc/*','sys/*','dev/*','var/cache/apt/archives/*'])
+                 '-wildcards','-e','boot','etc/kagnode/httpboot-builder','etc/httpboot-build','tmp/*','var/tmp/*','var/log/*','run/*','proc/*','sys/*','dev/*','var/cache/apt/archives/*'])
             from recovery import build_recovery
             firmware=ch('dpkg-query','-W','-f=${Version}', 'linux-firmware',capture_output=True).stdout.decode()
             build_recovery(cache,root,args.output,version,jobs,generation=package_key+firmware)
             # Bootstrap configuration is separate from the generic shared desktop.
-            lib=root/'usr/local/lib/httpboot'
+            lib=root/'opt/kagnode/httpboot/client'
             for name in ('init','init-v2-rest','initramfs-hook','network.sh','wifi.sh','dhclient-script','tui.sh','boot-checks.sh','boot-guard.sh'):
                 shutil.copyfile(SOURCE/'client'/name,lib/name);(lib/name).chmod(0o755)
             run(['cc','-O2',SOURCE/'client/age-unlock.c','-lutil','-o',lib/'age-unlock'])

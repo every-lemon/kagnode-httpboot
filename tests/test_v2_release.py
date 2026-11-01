@@ -42,7 +42,7 @@ class ReleaseTests(unittest.TestCase):
         from build_public import image_recipe,CLIENT_MODULES,CLIENT_INPUTS
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary)
-            files=['httpboot/build_public.py',*[f'httpboot/{name}' for name in CLIENT_MODULES],
+            files=['httpboot/build_public.py','httpboot/image_paths.py',*[f'httpboot/{name}' for name in CLIENT_MODULES],
                    *[f'client/{name}' for name in CLIENT_INPUTS],
                    'httpboot/assets/fonts/DejaVuSansMono.ttf','httpboot/assets/fonts/DejaVuSansMono-LICENSE.txt']
             for name in files:
