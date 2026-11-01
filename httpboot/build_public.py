@@ -279,7 +279,7 @@ def build(args):
             for name in ('init','init-v2-rest','initramfs-hook','network.sh','wifi.sh','dhclient-script','tui.sh','boot-checks.sh','boot-guard.sh'):
                 shutil.copyfile(SOURCE/'client'/name,lib/name);(lib/name).chmod(0o755)
             run(['cc','-O2',SOURCE/'client/age-unlock.c','-lutil','-o',lib/'age-unlock'])
-            settings=root/'etc/kagnode/httpboot-builder';settings.mkdir(mode=0o700,exist_ok=True)
+            settings=root/'etc/kagnode/httpboot-builder';public_directory(settings.parent);settings.mkdir(mode=0o700,exist_ok=True)
             atomic(settings/'boot.conf','HTTPBOOT_PROTOCOL=2\n')
             modules=[*MODULES,'ccm','cmac','gcm',*imported]
             for provider in ('ctr','aes_generic','aesni_intel','ghash_generic','sha256_generic','hmac'):
