@@ -67,6 +67,11 @@ class ReleaseTests(unittest.TestCase):
                     if member.name in ('.','./'):continue
                     if member.isdir():self.assertEqual(member.mode & 0o777,0o755,member.name)
                     elif member.isfile():self.assertEqual(member.mode & 0o444,0o444,member.name)
+            controls=subprocess.run(['dpkg-deb','--ctrl-tarfile',str(target)],check=True,capture_output=True).stdout
+            with tarfile.open(fileobj=io.BytesIO(controls)) as archive:
+                postinst=archive.getmember('./postinst')
+                self.assertEqual(postinst.mode & 0o777,0o755)
+                self.assertIn(b'migrate-paths.py --repair-links',archive.extractfile(postinst).read())
 
     def test_public_audit_rejects_credentials_and_private_state(self):
         spec=importlib.util.spec_from_file_location('audit_release', ROOT/'packaging/audit-public.py')

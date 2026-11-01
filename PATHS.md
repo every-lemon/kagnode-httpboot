@@ -18,6 +18,23 @@ Existing installations are not migrated automatically. Stop the listed applicati
 
 New shared parent directories are created with mode `0755`, including when the administrator uses `umask 077`. Copied project directories and private files retain their original ownership and permissions. Existing parent permissions are left unchanged; review service-user access to those parents before restarting an existing installation.
 
+Debian may remove the package-owned `/usr/lib/httpboot-source` compatibility
+link during an upgrade. Package configuration restores missing links only from
+a completed migration journal with retained originals and valid destinations.
+It refuses unrelated files or links and starts no service. Operators can run
+`python3 scripts/migrate-paths.py --repair-links` to repeat this check.
+
+Large Builder caches need separate review: they can exceed the space available
+for a verified copy and contain filesystem images with device nodes that the
+general copier deliberately refuses. After stopping Builders, confirming the
+worker lock is free and checking for mounted filesystems inside the cache, an
+operator can relocate the cache to `/var/cache/kagnode/httpboot` on the same
+filesystem. Migrate the remaining application paths while the old cache path is
+absent, then create its compatibility link. Verify the directory identity and
+build checkpoints before reuse. This preserves the current cache without making
+an immutable duplicate; moving it back restores its location, not an earlier
+cache snapshot. Keep qualified images and user saves separately.
+
 Client and recovery images install their application code in
 `/opt/kagnode/httpboot/client` and fonts in
 `/usr/local/share/fonts/kagnode/httpboot`. The offline image builder moves a

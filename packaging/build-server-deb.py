@@ -90,12 +90,14 @@ WantedBy=multi-user.target
     if builder:depends+=', debootstrap, squashfs-tools, initramfs-tools, systemd-ukify, systemd-boot-efi, gcc, zstd, qemu-system-x86, ovmf, mtools, fdisk, cpio, python3-pefile, python3-virt-firmware'
     (debian/'control').write_text('Package: httpboot-server\nVersion: '+VERSION+'\nArchitecture: '+('amd64' if builder else 'all')+'\nMaintainer: HTTP Boot contributors <httpboot@example.invalid>\nDepends: '+depends+'\nSection: admin\nPriority: optional\nDescription: HTTP Boot Server and optional amd64 Builder\n Authenticated activation, accounts, persistence, image delivery and administration.\n')
     (debian/'preinst').write_text('#!/bin/sh\nset -eu\nfor legacy in /usr/lib/httpboot-source /etc/httpboot /etc/httpboot-build /var/lib/httpboot-server /var/lib/httpboot-builder-v2 /var/lib/httpboot /opt/httpboot; do\n if [ -e "$legacy" ] && [ ! -L "$legacy" ]; then echo "Review PATHS.md and migrate legacy paths before installing this release: $legacy" >&2; exit 1; fi\ndone\n')
+    (debian/'postinst').write_text('#!/bin/sh\nset -eu\nif [ "${1:-}" = configure ] && [ -f /var/lib/kagnode-migrations/httpboot.json ]; then\n python3 /usr/share/doc/httpboot-server/migrate-paths.py --repair-links\nfi\n')
     # Package permissions must not inherit the operator's private umask.
     for path in root.rglob('*'):
         path.chmod(0o755 if path.is_dir() else 0o644)
     for launcher in binary.iterdir():launcher.chmod(0o755)
     (debian/'preinst').chmod(0o755)
-    # Deliberately no postinst activation: enrollment and PKI must precede rollout.
+    (debian/'postinst').chmod(0o755)
+    # Link repair does not activate services: enrollment and PKI precede rollout.
     return root
 
 
