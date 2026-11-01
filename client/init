@@ -243,10 +243,10 @@ mount -t tmpfs -o mode=0755,size=50% tmpfs /run/httpboot/rw
 mkdir /run/httpboot/rw/upper /run/httpboot/rw/work
 mount -t overlay overlay -o lowerdir=/run/httpboot/lower,upperdir=/run/httpboot/rw/upper,workdir=/run/httpboot/rw/work /newroot
 if [[ -d /httpboot/client ]]; then
-    mkdir -p /newroot/usr/local/lib/httpboot /newroot/etc/systemd/system/graphical.target.wants \
+    mkdir -p /newroot/opt/kagnode/httpboot/client /newroot/etc/systemd/system/graphical.target.wants \
         /newroot/etc/xdg/autostart /newroot/usr/share/applications
-    cp /httpboot/client/*.py /newroot/usr/local/lib/httpboot/
-    if [[ -f /httpboot/client/DejaVuSansMono.ttf ]];then cp /httpboot/client/DejaVuSansMono* /newroot/usr/local/lib/httpboot/;fi
+    cp /httpboot/client/*.py /newroot/opt/kagnode/httpboot/client/
+    if [[ -f /httpboot/client/DejaVuSansMono.ttf ]];then cp /httpboot/client/DejaVuSansMono* /newroot/opt/kagnode/httpboot/client/;fi
     mkdir -p /newroot/etc/systemd/user
     cp /httpboot/client/httpboot-session.service /newroot/etc/systemd/user/
     cp /httpboot/client/httpboot-control.service /newroot/etc/systemd/system/
@@ -296,7 +296,7 @@ STARTUP_UNIT
         cat >/newroot/home/recovery/.xinitrc <<'RECOVERY_XINIT'
 #!/bin/sh
 sudo -n /bin/sh -c 'echo HTTPBOOT_RECOVERY_DISPLAY_STARTED >/dev/console'
-sudo -n env DISPLAY="$DISPLAY" XAUTHORITY="$HOME/.Xauthority" python3 /usr/local/lib/httpboot/recovery_menu.py &
+sudo -n env DISPLAY="$DISPLAY" XAUTHORITY="$HOME/.Xauthority" python3 /opt/kagnode/httpboot/client/recovery_menu.py &
 exec /bin/sh "$HOME/.httpboot-xinitrc"
 RECOVERY_XINIT
         chmod 755 /newroot/home/recovery/.xinitrc

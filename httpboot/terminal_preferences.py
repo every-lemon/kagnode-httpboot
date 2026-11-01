@@ -23,7 +23,7 @@ def install(font=None):
     if os.geteuid()!=0:raise ValueError('Installing the shared font requires root')
     font=font or Path(__file__).with_name('DejaVuSansMono.ttf')
     if hashlib.sha256(font.read_bytes()).hexdigest()!=FONT_SHA:raise ValueError('Terminal font checksum mismatch')
-    target=Path('/usr/local/share/fonts/httpboot');target.parent.mkdir(parents=True,exist_ok=True);target.parent.chmod(0o755);target.mkdir(parents=True,exist_ok=True);target.chmod(0o755)
+    target=Path('/usr/local/share/fonts/kagnode/httpboot');target.parent.mkdir(parents=True,exist_ok=True);target.parent.chmod(0o755);target.mkdir(parents=True,exist_ok=True);target.chmod(0o755)
     shutil.copyfile(font,target/font.name);os.chmod(target/font.name,0o644)
     license=font.with_name('DejaVuSansMono-LICENSE.txt')
     if license.exists():shutil.copyfile(license,target/license.name)

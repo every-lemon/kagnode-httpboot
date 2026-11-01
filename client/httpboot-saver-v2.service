@@ -4,7 +4,7 @@ StartLimitBurst=2
 Description=HTTP Boot selected folder saver
 [Service]
 ExecCondition=/usr/bin/test -d /run/httpboot-v2/users/%U
-ExecStart=/usr/bin/python3 /usr/local/lib/httpboot/client_worker.py daemon
+ExecStart=/usr/bin/python3 /opt/kagnode/httpboot/client/client_worker.py daemon
 Restart=on-failure
 RestartSec=5
 [Install]

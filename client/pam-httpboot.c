@@ -23,7 +23,7 @@ static int session(pam_handle_t *pamh, const char *action) {
         close(fds[0]);dup2(fds[1],STDOUT_FILENO);close(fds[1]);
         clearenv();setenv("PATH","/usr/sbin:/usr/bin:/sbin:/bin",1);
         setenv("PAM_USER",user,1);setenv("PAM_SERVICE",service,1);setenv("PAM_TYPE",action,1);
-        execl("/usr/bin/python3","python3","/usr/local/lib/httpboot/pam-session-v2","--progress",NULL);
+        execl("/usr/bin/python3","python3","/opt/kagnode/httpboot/client/pam-session-v2","--progress",NULL);
         _exit(127);
     }
     close(fds[1]);FILE *stream=fdopen(fds[0],"r");

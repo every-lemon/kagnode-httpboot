@@ -8,7 +8,7 @@ ConditionPathExists=/run/httpboot/network-type
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/python3 /usr/local/lib/httpboot/network.py
+ExecStart=/usr/bin/python3 /opt/kagnode/httpboot/client/network.py
 RemainAfterExit=yes
 
 [Install]

@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from common import atomic, run, sha256, recovery_size_ok
 from build_support import Stages, prepare_resolver, check_dns
+from image_paths import client_library
 
 PACKAGES = ('systemd-sysv', 'systemd-resolved', 'udev', 'dbus-x11', 'dbus-user-session', 'libpam-systemd', 'xserver-xorg-legacy', 'xfonts-base', 'fonts-dejavu-core', 'xserver-xorg-core', 'xserver-xorg-input-libinput',
             'xserver-xorg-video-fbdev', 'xinit', 'openbox', 'xterm', 'mousepad', 'network-manager',
@@ -16,7 +17,7 @@ def build_recovery(cache_base, desktop, output, kernel, jobs, generation=""):
     # Package checkpoints survive changes to recovery tools and desktop Client code.
     key = hashlib.sha256((kernel + json.dumps(PACKAGES) + generation).encode()).hexdigest()
     recipe = hashlib.sha256((sha256(Path(__file__)) + ''.join(sha256(Path(__file__).with_name(name))
-        for name in ('recovery_browser.py','recovery_tools.py','common.py','boot_reports.py','control_transport.py','driver_store.py','driver_imports.py','usb_importer.py'))+
+        for name in ('image_paths.py','recovery_browser.py','recovery_tools.py','common.py','boot_reports.py','control_transport.py','driver_store.py','driver_imports.py','usb_importer.py'))+
         ''.join(sha256(Path(__file__).resolve().parents[1]/'client'/name) for name in ('network.py','httpboot-network.service'))).encode()).hexdigest()
     base = cache_base/'recovery'/key
     base.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -65,15 +66,16 @@ def build_recovery(cache_base, desktop, output, kernel, jobs, generation=""):
                '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin recovery --noclear %I $TERM\n',0o644)
         atomic(root/'etc/sudoers.d/httpboot-recovery','recovery ALL=(ALL) NOPASSWD: ALL\n',0o440)
         atomic(root/'home/recovery/.bash_profile','if [ "$(tty)" = /dev/tty1 ]; then exec startx; fi\n',0o644)
-        atomic(root/'home/recovery/.xinitrc','#!/bin/sh\nsudo -n /bin/sh -c \'echo HTTPBOOT_RECOVERY_DISPLAY_STARTED >/dev/console\'\nnm-applet &\npython3 /usr/local/lib/httpboot/recovery_browser.py &\nxterm -e sudo python3 /usr/local/lib/httpboot/recovery_tools.py &\nxterm -title "httpboot recovery: RAM only; export work before shutdown" &\nzenity --warning --text="Offline recovery. Server profiles are unavailable. Files are temporary and disappear at shutdown. Export work to another drive before restarting." &\nexec openbox-session\n',0o755)
-        atomic(root/'usr/local/lib/httpboot/recovery_browser.py',(Path(__file__).with_name('recovery_browser.py')).read_bytes(),0o644)
-        atomic(root/'usr/share/applications/httpboot-recovery-browser.desktop','[Desktop Entry]\nType=Application\nName=Recovery Browser\nExec=python3 /usr/local/lib/httpboot/recovery_browser.py\nCategories=Network;\n',0o644)
+        client_library(root)
+        atomic(root/'home/recovery/.xinitrc','#!/bin/sh\nsudo -n /bin/sh -c \'echo HTTPBOOT_RECOVERY_DISPLAY_STARTED >/dev/console\'\nnm-applet &\npython3 /opt/kagnode/httpboot/client/recovery_browser.py &\nxterm -e sudo python3 /opt/kagnode/httpboot/client/recovery_tools.py &\nxterm -title "httpboot recovery: RAM only; export work before shutdown" &\nzenity --warning --text="Offline recovery. Server profiles are unavailable. Files are temporary and disappear at shutdown. Export work to another drive before restarting." &\nexec openbox-session\n',0o755)
+        atomic(root/'opt/kagnode/httpboot/client/recovery_browser.py',(Path(__file__).with_name('recovery_browser.py')).read_bytes(),0o644)
+        atomic(root/'usr/share/applications/httpboot-recovery-browser.desktop','[Desktop Entry]\nType=Application\nName=Recovery Browser\nExec=python3 /opt/kagnode/httpboot/client/recovery_browser.py\nCategories=Network;\n',0o644)
         for tool in ('common.py','boot_reports.py','control_transport.py','driver_store.py','driver_imports.py','usb_importer.py','recovery_tools.py'):
-            atomic(root/'usr/local/lib/httpboot'/tool,Path(__file__).with_name(tool).read_bytes(),0o644)
-        atomic(root/'usr/share/applications/httpboot-repair.desktop','[Desktop Entry]\nType=Application\nName=HTTP Boot repair tools\nExec=xterm -e sudo python3 /usr/local/lib/httpboot/recovery_tools.py\nCategories=System;\n',0o644)
+            atomic(root/'opt/kagnode/httpboot/client'/tool,Path(__file__).with_name(tool).read_bytes(),0o644)
+        atomic(root/'usr/share/applications/httpboot-repair.desktop','[Desktop Entry]\nType=Application\nName=HTTP Boot repair tools\nExec=xterm -e sudo python3 /opt/kagnode/httpboot/client/recovery_tools.py\nCategories=System;\n',0o644)
         ch('chown','-R','recovery:recovery','/home/recovery')
         source=Path(__file__).resolve().parents[1]/'client'
-        atomic(root/'usr/local/lib/httpboot/network.py',(source/'network.py').read_bytes(),0o755)
+        atomic(root/'opt/kagnode/httpboot/client/network.py',(source/'network.py').read_bytes(),0o755)
         atomic(root/'etc/systemd/system/httpboot-network.service',(source/'httpboot-network.service').read_bytes(),0o644)
         ch('systemctl','enable','httpboot-network.service','NetworkManager.service','systemd-resolved.service','getty@tty1.service')
         ch('systemctl','set-default','multi-user.target')
