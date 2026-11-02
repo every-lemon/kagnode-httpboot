@@ -30,6 +30,7 @@ jobs:
           dpkg-deb --info build/builder.deb
           dpkg-deb --extract build/server.deb build/extracted
           /usr/bin/python3 build/extracted/opt/kagnode/httpboot/source/httpboot/server_v2.py --version
+          sudo /usr/bin/python3 scripts/check-docless-package.py build/server.deb
       - name: Public files
         run: |
           git ls-files -z | xargs -0 /usr/bin/python3 packaging/audit-public.py
