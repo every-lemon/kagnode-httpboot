@@ -458,7 +458,7 @@ def main():
         # PKI must be provisioned explicitly; do not silently replace trust roots.
         from image_delivery import ImageHandler
         with Server((args.host,args.port), args.pki or args.state/'pki', authority,handler=ImageHandler) as server:
-            import threading,time
+            import threading
             def sweep():
                 while True:
                     time.sleep(30)
