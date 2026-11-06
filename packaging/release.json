@@ -1,0 +1,8 @@
+{
+  "repository": "kagnode-httpboot",
+  "version_file": "httpboot/product_version.py",
+  "version_pattern": "VERSION = [\\\"']([^\\\"']+)[\\\"']",
+  "kind": "application",
+  "license": "AGPL-3.0-only",
+  "revision": 1
+}

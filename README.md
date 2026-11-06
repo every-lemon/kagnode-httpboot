@@ -1,33 +1,77 @@
-<p align="center"><img src="assets/kagnode-wordmark.svg" width="440" alt="KagNode. HTTP Boot"></p>
+<p align="center"><img src="assets/kagnode-wordmark.svg" width="440" alt="KagNode."></p>
 
 # KagNode HTTP Boot
 
-Open-source HTTP Boot Server, Builder and Client tooling. The Client boots an image delivered over the network with the project's existing activation, account, persistence and recovery workflows. Startup shows the KagNode symbol in blue when color is supported, with a plain text fallback for unattended consoles and `NO_COLOR`.
+## Overview
 
-This repository is the public source export. It contains no private release images, signing secrets, Client credentials or saved user data. The existing local Server console is retained; no hosted cloud control plane is implied.
+Network boot, authenticated image delivery, desktop persistence and recovery tooling.
 
-## Install and update
+## Release status
 
-Read [installation instructions](docs/INSTALL-v2.md) before using the packages. Source preview **3.1.16-beta.3** adds the private web console. The existing **3.1.16-beta.2** packages remain a branding/path preview until updated packages are published. Existing 3.1.15 releases and their verification records remain in history. This preview does not replace a qualified desktop image or claim new physical hardware qualification.
+Product source: **3.1.16-beta.3**. Packaging preview: **3.1.16-beta.3.packaging.1**.
 
-New paths are under `/opt/kagnode/httpboot`, `/etc/kagnode/httpboot`, `/var/lib/kagnode/httpboot` and related Server/Builder project directories. Existing systems need the explicit migration procedure in [PATHS.md](PATHS.md). It preserves original data and compatibility links, can resume interrupted copies and supports rollback while retaining newer writes for review. No running Server, Builder, Client session or saved data is migrated by publishing source.
+Packaging prereleases do not change the latest stable release or establish new hardware or service compatibility. See [verification](docs/VERIFICATION.md) and [changelog](CHANGELOG.md).
 
-## Private web console
+## Features
 
-The optional KagNode web console has separate `/overview`, `/clients`, `/accounts`, `/reports` and `/access` pages. It reads the existing authority, shows sanitized boot health and approves pending Clients with selected existing accounts. It does not build images, create cloud services or restart Clients.
+- Separate Server authority, Builder tooling and Client integration.
+- Account assignment, image delivery, persistence and recovery.
+- Private routed web console with independent access controls.
 
-Run `sudo httpboot-web` (or `sudo httpboot-server web-console`) on an installed Server. It binds **127.0.0.1:8084** and creates a separate protected `web-console-token` in the Server state directory. The existing authority must already exist; the standalone console does not create a database or run migrations. To enable automatic startup, use `sudo systemctl enable --now kagnode-httpboot-web` after installing a package that contains it.
+## Requirements
 
-From your workstation, forward the private listener with `ssh -L 8084:127.0.0.1:8084 USER@SERVER`, then open `http://127.0.0.1:8084`. Read the console credential locally with `sudo cat /var/lib/kagnode/httpboot-server/web-console-token` and enter it in the connect screen. Never publish that credential. It is retained only in the browser tab’s session storage; **Lock console** clears browser access. Restarting the web console rotates its credential. Native Client credentials and the legacy console token are separate.
+Use the existing Server/Client prerequisites. The optional Builder remains amd64-specific; preview RPMs do not qualify Rocky Linux boot or image-building operation.
 
-The UI uses the shared KagNode styling, keyboard focus, small-screen navigation and reduced-motion support. Readable sources are under `web/`; regenerate the committed asset module with `ESBUILD=/path/to/esbuild python3 scripts/build-web.py` (esbuild 0.28.2). Delivered CSS/JS are minified and fingerprinted without public source maps. This helps identify builds and cache assets; it cannot prevent browser inspection or reuse allowed by the license.
+## Installation and downloads
 
-## Build and verify
+Download from [GitHub Releases](https://github.com/every-lemon/kagnode-httpboot/releases). Verify `SHA256SUMS` before extracting or installing a package.
 
-Use Ubuntu 24.04 and the dependencies in the CI workflow. Build packages with `packaging/build-server-deb.py`; `packaging/public-source.py` creates an allowlisted source archive. Run `python3 -m unittest discover -s tests -p 'test_v2*.py' -v`. Image builds and hardware qualification are separate operations with their own resource requirements and evidence.
+| Payload | Formats | Support |
+| --- | --- | --- |
+| Complete source / artwork | `.tar.xz`, `.tar.gz`, `.zip` | Named top-level directory; manual setup |
+| Source preview | `.deb` | Source only; does not provision a service |
+| Source preview | `.rpm` | Rocky Linux 10 packaging preview; native services unverified |
 
-## License
+Existing Server/Builder `.deb` and Builder installer workflows remain available.
 
-Current combined release and new original work: **AGPL-3.0-only**. Earlier MIT-covered code retains the notice in `LICENSES/MIT-legacy.txt`; third-party code and fonts retain their own licenses. Prior MIT releases remain usable under their original grants. [Brand policy](BRAND-POLICY.md) does not forbid forks or rebranding permitted by software licensing.
+Source packages install under `/usr/share/kagnode/`; they do not replace an existing application, migrate data, start services or configure networking.  See [package details](docs/PACKAGING.md).
 
-[KagNode](https://nebulacoder.com) · [Developer](https://developer.nebulacoder.com) · [Logos](https://github.com/every-lemon/kagnode-logos)
+## Usage
+
+```sh
+python3 httpboot/server_v2.py --help
+# Read docs/INSTALL-v2.md before native setup.
+```
+
+See [operations and existing setup instructions](docs/OPERATIONS.md) for the full workflow and its prerequisites.
+
+## Configuration and storage
+
+Retain existing server authority, image stores and verified user saves. Source packaging never builds a Client image or restarts native services.
+
+## Security
+
+Use HTTPS and least-privilege accounts for hosted services. Keep secrets and user data out of Git. Preview packages are for inspection and controlled testing; native service and hardware claims remain limited to recorded verification. See [security guidance](docs/SECURITY.md).
+
+## Development and testing
+
+```sh
+python3 -m unittest discover -s tests -p 'test_v2*.py' -v
+python3 scripts/repository_check.py
+python3 scripts/format_source.py --check
+python3 scripts/release.py --output dist/packages
+```
+
+Install the formatting dependencies from `requirements-format.txt`. Package building additionally needs `dpkg-deb`, `rpmbuild`, XZ support and, for CLI binaries, Go. Read [the repository map](docs/STRUCTURE.md) before editing generated files.
+
+## Documentation
+
+- [Repository structure](docs/STRUCTURE.md)
+- [Operations](docs/OPERATIONS.md)
+- [Packages and release process](docs/PACKAGING.md)
+- [Verification and limits](docs/VERIFICATION.md)
+- [Changelog](CHANGELOG.md)
+
+## Licensing
+
+See [LICENSE](LICENSE) and retained third-party notices. KagNode artwork retains its separate permission and brand policy; the application uses AGPL-3.0-only.

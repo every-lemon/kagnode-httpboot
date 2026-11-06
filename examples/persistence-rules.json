@@ -1,6 +1,22 @@
 [
-  {"folder": "Documents", "mode": "folder", "source": null},
-  {"folder": "Desktop", "mode": "folder", "source": null},
-  {"folder": "Downloads", "mode": "folder", "source": null},
-  {"folder": "workspace", "mode": "folder", "source": null}
+  {
+    "folder": "Documents",
+    "mode": "folder",
+    "source": null
+  },
+  {
+    "folder": "Desktop",
+    "mode": "folder",
+    "source": null
+  },
+  {
+    "folder": "Downloads",
+    "mode": "folder",
+    "source": null
+  },
+  {
+    "folder": "workspace",
+    "mode": "folder",
+    "source": null
+  }
 ]

@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Wrap the combined Debian package in a self-removing, verifiable Builder installer."""
+
 import argparse
 import base64
 import hashlib
 from pathlib import Path
 
 
-def build(package,output):
-    payload=Path(package).read_bytes();checksum=hashlib.sha256(payload).hexdigest()
-    script=r'''#!/bin/bash
+def build(package, output):
+    payload = Path(package).read_bytes()
+    checksum = hashlib.sha256(payload).hexdigest()
+    script = r"""#!/bin/bash
 set -Eeuo pipefail
 if (( EUID != 0 ));then echo 'Run this saved file with sudo bash.' >&2;exit 1;fi
 if [[ $(uname -m) != x86_64 ]];then echo 'This installer requires an amd64 Builder.' >&2;exit 1;fi
@@ -47,13 +49,16 @@ rm -- "$self"
 echo 'The installer removed its own .sh file. No restart was requested.'
 exit 0
 __HTTPBOOT_DEB_PAYLOAD__
-'''
-    script=script.replace('__CHECKSUM__',checksum)
-    Path(output).write_text(script+base64.encodebytes(payload).decode())
+"""
+    script = script.replace("__CHECKSUM__", checksum)
+    Path(output).write_text(script + base64.encodebytes(payload).decode())
     Path(output).chmod(0o700)
     return Path(output)
 
-if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--package',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    args=parser.parse_args();print(build(args.package,args.output))
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--package", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    print(build(args.package, args.output))

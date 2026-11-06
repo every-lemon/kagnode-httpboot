@@ -1,9 +1,10 @@
 """Client image layout, including existing launchers in retained private images."""
+
 import os
 from pathlib import Path
 
-CLIENT_LIBRARY = Path('opt/kagnode/httpboot/client')
-LEGACY_CLIENT_LIBRARY = Path('usr/local/lib/httpboot')
+CLIENT_LIBRARY = Path("opt/kagnode/httpboot/client")
+LEGACY_CLIENT_LIBRARY = Path("usr/local/lib/httpboot")
 
 
 def public_directory(path):
@@ -30,18 +31,24 @@ def client_library(root):
             if parent == root:
                 break
             if parent.is_symlink():
-                raise ValueError('Client library parent must not be a symlink: ' + str(parent))
+                raise ValueError(
+                    "Client library parent must not be a symlink: " + str(parent)
+                )
     link = os.path.relpath(destination, legacy.parent)
     if destination.is_symlink():
-        raise ValueError('Client library destination must not be a symlink')
+        raise ValueError("Client library destination must not be a symlink")
     if destination.exists() and not destination.is_dir():
-        raise ValueError('Client library destination must be a directory')
+        raise ValueError("Client library destination must be a directory")
     if legacy.is_symlink():
         if os.readlink(legacy) != link or not destination.is_dir():
-            raise ValueError('Unexpected legacy Client library link; inspect the image root')
+            raise ValueError(
+                "Unexpected legacy Client library link; inspect the image root"
+            )
         return destination
     if legacy.exists() and (not legacy.is_dir() or destination.exists()):
-        raise ValueError('Conflicting Client library paths; retained files were not changed')
+        raise ValueError(
+            "Conflicting Client library paths; retained files were not changed"
+        )
     public_directory(destination.parent)
     if legacy.is_dir():
         legacy.rename(destination)
