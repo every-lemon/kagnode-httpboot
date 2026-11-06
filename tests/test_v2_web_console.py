@@ -54,3 +54,17 @@ class AttachedAuthorityTests(unittest.TestCase):
    attached=server_console.existing_authority(path)
    with attached.db(write=False) as db:after=list(db.execute("SELECT sql FROM sqlite_master ORDER BY name"))
    self.assertEqual([tuple(row) for row in before],[tuple(row) for row in after]);attached.close();original.close()
+
+class ConsoleCredentialTests(unittest.TestCase):
+ def test_routed_credential_survives_restart_and_legacy_rotation_is_retained(self):
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'web-console-token';first=server_console.console_credential(path,persist=True)
+   self.assertEqual(first,server_console.console_credential(path,persist=True));self.assertEqual(path.stat().st_mode&0o777,0o600)
+   self.assertNotEqual(first,server_console.console_credential(path,persist=False))
+ def test_invalid_permissions_and_symlinks_fail_without_replacing_secrets(self):
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'web-console-token';first=server_console.console_credential(path,persist=True);path.chmod(0o644)
+   with self.assertRaises(ValueError):server_console.console_credential(path,persist=True)
+   self.assertEqual(path.read_text().strip(),first);path.unlink();target=Path(folder)/'target';target.write_text('retained');path.symlink_to(target)
+   with self.assertRaises(ValueError):server_console.console_credential(path,persist=True)
+   self.assertEqual(target.read_text(),'retained')

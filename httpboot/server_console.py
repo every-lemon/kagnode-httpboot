@@ -1,6 +1,8 @@
 """Private, routed KagNode HTTP Boot console backed by the existing authority."""
 import hmac
 import json
+import os
+import stat
 import re
 import secrets
 import sqlite3
@@ -72,11 +74,27 @@ def existing_authority(database):
     return ConsoleAuthority(database)
 
 
+def console_credential(path,persist=False):
+    """The routed console keeps its private credential across UI-only restarts."""
+    if path.is_symlink():
+        raise ValueError('Console credential cannot be a symlink')
+    if persist and path.exists():
+        details=path.stat()
+        if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode)&0o077 or details.st_uid!=os.geteuid():
+            raise ValueError('Console credential must be a private file owned by the service account')
+        token=path.read_text().strip()
+        if not re.fullmatch(r'[A-Za-z0-9_-]{43}',token):
+            raise ValueError('Invalid stored console credential; rotate it explicitly')
+        return token
+    token=secrets.token_urlsafe(32)
+    atomic(path,token)
+    return token
+
+
 def serve(authority,pki,port=8081,credential_name='console-token'):
     if credential_name not in ('console-token','web-console-token'):
         raise ValueError('Invalid console credential name')
-    token=secrets.token_urlsafe(32)
-    atomic(authority.database.parent/credential_name,token)
+    token=console_credential(authority.database.parent/credential_name,persist=credential_name=='web-console-token')
     class Handler(BaseHTTPRequestHandler):
         server_version='KagNodeHTTPBoot'
         sys_version=''

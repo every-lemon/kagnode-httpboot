@@ -5,3 +5,5 @@ Pages and overflow regions use the shared KagNode rails and real scroll position
 Choose **Use native scrolling** in the visible footer to restore the browser controls. This preference is stored locally when browser storage is available. Sandboxed fictional examples cannot share browser storage and keep their choice for that frame only. The native behavior remains the fallback if JavaScript does not initialize. Forced-color mode uses native controls.
 
 Readable sources are `kagnode-scroll.js` and `kagnode-scroll.css` in the project's web/static/assets directory. Use the project's existing asset build after changes; production assets are minified and fingerprinted separately. Do not edit generated modules or hashed files.
+
+The routed private console preserves its protected `web-console-token` across UI updates. To rotate it deliberately, stop the routed console, remove that credential file from the private Server state, then start it and retrieve the new credential privately. The legacy console's startup behavior is unchanged. No Client or image restart is required.
