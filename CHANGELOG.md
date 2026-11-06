@@ -1,6 +1,6 @@
 ## Unreleased — 3.1.16 qualification
 
-## Web console 0.1.0 (source preview)
+## 3.1.16-beta.3 — Web console 0.1.0 (source preview)
 
 - Added a separate localhost web server with routed KagNode pages, Client review, existing account assignment and sanitized reports.
 - Added bounded requests, same-origin checks, independent console credentials and fingerprinted UI assets.
