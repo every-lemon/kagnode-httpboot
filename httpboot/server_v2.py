@@ -430,6 +430,7 @@ def main():
     pending=sub.add_parser('pending-media');pending.add_argument('device');pending.add_argument('file',type=Path)
     sub.add_parser('setup')
     console=sub.add_parser('console');console.add_argument('--port',type=int,default=8081)
+    web_console=sub.add_parser('web-console');web_console.add_argument('--port',type=int,default=8084)
     approve = sub.add_parser('approve');approve.add_argument('code');approve.add_argument('--accounts',nargs='+')
     release = sub.add_parser('release-session');release.add_argument('name')
     assign = sub.add_parser('assign');assign.add_argument('name');assign.add_argument('device')
@@ -452,7 +453,10 @@ def main():
     if os.geteuid() != 0:
         parser.error('Server administration requires root')
     os.umask(0o077)
-    authority = Authority(args.state/'authority.sqlite3')
+    if args.command=='web-console':
+        from server_console import existing_authority
+        authority=existing_authority(args.state/'authority.sqlite3')
+    else:authority = Authority(args.state/'authority.sqlite3')
     if args.command == 'serve':
         from control_transport import Server
         # PKI must be provisioned explicitly; do not silently replace trust roots.
@@ -542,9 +546,10 @@ def main():
     elif args.command == 'bootstrap-http':
         from bootstrap_http import serve
         serve(authority,args.host,args.port)
-    elif args.command == 'console':
+    elif args.command in ('console','web-console'):
         from server_console import serve
-        serve(authority,args.state/'pki',args.port)
+        if args.command=='web-console':serve(authority,args.state/'pki',args.port,credential_name='web-console-token')
+        else:serve(authority,args.state/'pki',args.port)
     elif args.command == 'setup':
         from server_setup import setup
         setup(authority,args.state)

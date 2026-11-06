@@ -1,5 +1,11 @@
 ## Unreleased — 3.1.16 qualification
 
+## Web console 0.1.0 (source preview)
+
+- Added a separate localhost web server with routed KagNode pages, Client review, existing account assignment and sanitized reports.
+- Added bounded requests, same-origin checks, independent console credentials and fingerprinted UI assets.
+- Retained native Server/Client services, image qualification status and existing release history.
+
 Client and recovery images use the KagNode application paths. Offline image
 preparation retains legacy launchers through a compatibility link, rejects
 conflicting trees, and keeps new code paths readable under a private umask.

@@ -12,7 +12,7 @@ sys.path.insert(0,str(SOURCE/'httpboot'))
 from product_version import DEBIAN_VERSION as VERSION
 MODULES=('product_version.py','client_power.py','session_leases.py','client_policy.py','terminal_preferences.py','approval_wizard.py','builder_v2.py','server_jobs.py','driver_store.py','boot_ui.py','boot_identity.py','media_setup.py','storage.py','storage_guard.py','recovery_cache.py','kernel_stage.py','hardware_bundle.py','recovery_tools.py','media_v2.py','server_maintenance.py','maintenance.py','apt_tools.py','validate_v2.py','initrd_reader.py','legacy_snapshots.py','client_updates.py','pending_storage.py','pending_worker.py','bootstrap_http.py','common.py','control_transport.py','server_v2.py','snapshot_store.py','image_delivery.py',
          'persistence_v2.py','restore_progress.py','client_agent.py','client_worker.py','client_ui.py','flatpak_content.py',
-         'schedule_policy.py','migration_v2.py','release_cleanup.py','server_setup.py','server_console.py',
+         'schedule_policy.py','migration_v2.py','release_cleanup.py','server_setup.py','server_console.py','server_web.py','server_web_assets.py',
          'printers.py','driver_imports.py','usb_importer.py','sober_check.py','boot_reports.py','boot_client_v2.py',
          'build_public.py','image_paths.py','build_support.py','recovery.py','recovery_browser.py','build_cache.py')
 CLIENT=('power_guard.py','httpboot-power-guard.service','desktop_state.py','pam-httpboot.c','init','init-v2-rest','boot-guard.sh','initramfs-hook','initramfs-v2-hook','network.sh','network.py','httpboot-network.service','wifi.sh','dhclient-script',
@@ -30,10 +30,11 @@ def tree(root,builder=False):
     helpers=base/'scripts';helpers.mkdir()
     shutil.copyfile(SOURCE/'scripts/migrate-paths.py',helpers/'migrate-paths.py')
     binary=root/'usr/sbin';binary.mkdir(parents=True)
-    for name,module in (('httpboot-server','server_v2.py'),('httpboot-builder-service','builder_v2.py'),('httpboot-builder','build_public.py'),('httpboot-import-drivers','usb_importer.py')):
+    for name,module in (('httpboot-server','server_v2.py'),('httpboot-web','server_web.py'),('httpboot-builder-service','builder_v2.py'),('httpboot-builder','build_public.py'),('httpboot-import-drivers','usb_importer.py')):
         launcher=binary/name
         launcher.write_text('#!/bin/sh\nexec /usr/bin/python3 /opt/kagnode/httpboot/source/httpboot/'+module+' "$@"\n');launcher.chmod(0o755)
     units=root/'usr/lib/systemd/system';units.mkdir(parents=True)
+    (units/'kagnode-httpboot-web.service').write_text('[Unit]\nDescription=KagNode HTTP Boot private web console\nAfter=httpboot-server.service\nConditionPathExists=/var/lib/kagnode/httpboot-server/authority.sqlite3\n[Service]\nExecStart=/usr/sbin/httpboot-web\nRestart=on-failure\nRestartSec=5\nUMask=0077\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectHome=yes\nProtectSystem=strict\nReadWritePaths=/var/lib/kagnode/httpboot-server\nRestrictAddressFamilies=AF_INET AF_UNIX\n[Install]\nWantedBy=multi-user.target\n')
     # Pull existing companions back up on start, and propagate authority restarts
     # even when a deployment overrides a companion's main unit in /etc.
     companions=units/'httpboot-server.service.d';companions.mkdir()

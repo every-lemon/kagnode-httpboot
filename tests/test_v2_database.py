@@ -234,7 +234,7 @@ assert 'sqlite3' not in sys.modules and '_sqlite3' not in sys.modules
                     thread.start();self.assertTrue(ready.wait(5))
                     connection=http.client.HTTPConnection('127.0.0.1',servers[0].server_port,timeout=3)
                     connection.request('GET','/api/state')
-                    response=connection.getresponse();response.read();self.assertEqual(response.status,400)
+                    response=connection.getresponse();response.read();self.assertEqual(response.status,401)
                     headers={'Authorization':'Bearer '+(root/'console-token').read_text()}
                     connection.request('GET','/api/state',headers=headers)
                     response=connection.getresponse();body=json.loads(response.read())
