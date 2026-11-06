@@ -165,7 +165,7 @@ class ReleaseTests(unittest.TestCase):
             with tarfile.open(root / "first.tar.gz") as archive:
                 self.assertEqual(
                     archive.extractfile("README.md").read(),
-                    (ROOT / "docs/README-public.md").read_bytes(),
+                    (ROOT / "README.md").read_bytes(),
                 )
                 # A downloaded source archive must render its README offline too.
                 logo = "assets/kagnode-wordmark.svg"
