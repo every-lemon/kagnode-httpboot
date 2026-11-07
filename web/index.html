@@ -12,8 +12,10 @@
     <script src="/assets/console.js" defer></script>
     <link rel="stylesheet" href="/assets/kagnode-scroll.css" />
     <script src="/assets/kagnode-scroll.js" defer></script>
+    <link rel="stylesheet" href="/assets/kagnode-account.css" />
+    <script src="/assets/kagnode-account.js" defer></script>
   </head>
-  <body data-kn-manual-navigation class="kn-ui">
+  <body data-kn-account-app="httpboot" data-kn-manual-navigation class="kn-ui">
     <a class="skip-link" href="#main">Skip to content</a>
     <div id="connect-screen" class="connect-screen">
       <section class="connect-card">
@@ -184,6 +186,10 @@
             ><strong id="topbar-title">Overview</strong>
           </div>
           <div>
+            <span class="kn-profile-avatar" data-kn-account-avatar>A</span
+            ><span class="kn-profile-name" data-kn-account-name
+              >Server administrator</span
+            >
             <button
               id="theme-toggle"
               class="icon-button"

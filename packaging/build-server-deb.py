@@ -13,6 +13,7 @@ sys.path.insert(0, str(SOURCE / "httpboot"))
 from product_version import DEBIAN_VERSION as VERSION
 
 MODULES = (
+    "account_sync.py",
     "product_version.py",
     "client_power.py",
     "session_leases.py",

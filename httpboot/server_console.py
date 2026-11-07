@@ -142,6 +142,14 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
         persist=credential_name == "web-console-token",
     )
 
+    from account_sync import ProfileLinks, AccountLinkError
+
+    profile_links = (
+        ProfileLinks(authority.database.parent / "account-sync", "kagnode-httpboot")
+        if credential_name == "web-console-token"
+        else None
+    )
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "KagNodeHTTPBoot"
         sys_version = ""
@@ -244,6 +252,44 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                     self.send(
                         403, b'{"error":"Same-origin console requests are required."}'
                     )
+                    return
+                if path == "/api/kagnode-account" and profile_links is not None:
+                    data = {}
+                    if self.command == "POST":
+                        lengths = self.headers.get_all("Content-Length", [])
+                        if (
+                            len(lengths) != 1
+                            or self.headers.get("Transfer-Encoding")
+                            or self.headers.get_content_type() != "application/json"
+                        ):
+                            raise ValueError(
+                                "A bounded JSON account-link request is required."
+                            )
+                        size = int(lengths[0])
+                        if not 0 < size <= 4096:
+                            raise ValueError(
+                                "Account-link request exceeds its size limit."
+                            )
+                        data = json.loads(self.rfile.read(size))
+                        if not isinstance(data, dict):
+                            raise ValueError("Invalid account-link request.")
+                    elif self.command not in ("GET", "HEAD"):
+                        self.send(405, b'{"error":"Method not allowed."}')
+                        return
+                    try:
+                        result = profile_links.handle(
+                            "console-owner",
+                            "Server administrator",
+                            True,
+                            str(data.get("action", "state")),
+                            data,
+                            "http://" + host,
+                        )
+                        self.send(200, json.dumps(result).encode())
+                    except AccountLinkError as error:
+                        self.send(
+                            error.status, json.dumps({"error": str(error)}).encode()
+                        )
                     return
                 if self.command in ("GET", "HEAD") and path == "/api/state":
                     result = read_state(authority)

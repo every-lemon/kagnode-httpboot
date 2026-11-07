@@ -31,3 +31,7 @@ KagNode branding, project-scoped path defaults and an explicit migration tool. S
 # 3.1.15-beta.2
 
 Fixed for update 3.1.15-beta.2
+
+## Account profile integration preview
+
+Added optional KagNode Account display-name/photo linking, local administrator disable controls and private credential storage. Existing local account authentication and data remain independent.
