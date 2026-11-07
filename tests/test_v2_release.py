@@ -23,7 +23,7 @@ sys.path.insert(0, str(ROOT / "httpboot"))
 from common import dump
 from control_transport import ca, certificate_host, Server
 from builder_v2 import LimitedServer
-from client_updates import Updates
+from client_updates import Updates, copy_verified
 from product_version import VERSION, DEBIAN_VERSION, debian_version
 
 
@@ -380,6 +380,80 @@ class UpdateProgressTests(unittest.TestCase):
             with patch("client_updates.time.time", return_value=107.0):
                 updates.progress("Checking boot media", phase="download-complete")
             self.assertEqual(updates.snapshot()["elapsed_seconds"], 7)
+
+
+class BootMediaProgressTests(unittest.TestCase):
+    def test_copy_reports_flush_and_verification_and_preserves_existing_on_failure(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            target = root / "target"
+            data = b"fixture" * 200000
+            source.write_bytes(data)
+            target.write_bytes(b"previous verified file")
+            events = []
+            with self.assertRaisesRegex(ValueError, "verification"):
+                copy_verified(
+                    source, target, "0" * 64, lambda **values: events.append(values)
+                )
+            self.assertEqual(target.read_bytes(), b"previous verified file")
+            self.assertFalse(list(root.glob(".httpboot-update-*")))
+            copy_verified(
+                source,
+                target,
+                hashlib.sha256(data).hexdigest(),
+                lambda **values: events.append(values),
+            )
+            self.assertEqual(target.read_bytes(), data)
+            self.assertTrue(
+                any(
+                    e["io_stage"] == "flushing"
+                    and e["bytes_total"] == 0
+                    and e["eta_seconds"] is None
+                    for e in events
+                )
+            )
+            self.assertTrue(
+                any(
+                    e["io_stage"] == "verifying" and e["bytes_done"] == 2 * len(data)
+                    for e in events
+                )
+            )
+
+    def test_phase_transition_clears_stale_download_and_limits_card_syncs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            updates = Updates(SimpleNamespace(run=root))
+            updates.path = root / "card-state.json"
+            updates.state = {"state": "running", "started": 90, "logs": []}
+            with patch("client_updates.dump", wraps=dump) as writes:
+                for index in range(20):
+                    with patch(
+                        "client_updates.time.time", return_value=100 + index / 100
+                    ):
+                        updates.progress(
+                            "Downloading boot.efi",
+                            phase="downloading",
+                            bytes_done=index,
+                            bytes_total=20,
+                            elapsed_seconds=index / 100,
+                            eta_seconds=0,
+                        )
+                durable = [
+                    call
+                    for call in writes.call_args_list
+                    if call.args[0] == updates.path
+                ]
+                self.assertEqual(len(durable), 1)
+                with patch("client_updates.time.time", return_value=101):
+                    updates.progress("Checking boot media", phase="card-readback")
+            state = updates.snapshot()
+            self.assertEqual(state["bytes_total"], 0)
+            self.assertEqual(state["bytes_done"], 0)
+            self.assertIsNone(state["eta_seconds"])
+            self.assertEqual(json.loads(updates.path.read_text()), state)
 
 
 class InterruptedUpdateTests(unittest.TestCase):

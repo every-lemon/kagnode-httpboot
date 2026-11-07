@@ -40,6 +40,65 @@ class RepairTests(unittest.TestCase):
         self.assertEqual(repair.replacement(old), new)
         self.assertEqual(repair.replacement(new), new)
 
+    def test_intermediate_progress_fix_can_be_upgraded(self):
+        text = new.decode()
+        a = text.index("    def progress(")
+        b = text.index("    def snapshot(", a)
+        intermediate = (
+            text[:a]
+            + __import__("textwrap").indent(repair.INTERMEDIATE, "    ")
+            + "\n"
+            + text[b:]
+        )
+        self.assertEqual(repair.replacement(intermediate.encode()), new)
+
+    def test_known_display_dependency_is_backed_up_and_relaxed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dropin = root / "httpboot.conf"
+            original = (
+                "[Unit]\nRequires=" + repair.UNIT + "\nAfter=" + repair.UNIT + "\n"
+            ).encode()
+            dropin.write_bytes(original)
+            before = {
+                "ActiveState": "active",
+                "MainPID": "123",
+                "Requires": repair.UNIT,
+                "BindsTo": "",
+            }
+            after = {**before, "Requires": ""}
+            with (
+                patch.object(repair, "DISPLAY_DROPIN", dropin),
+                patch.object(repair, "display_state", side_effect=[before, after]),
+                patch.object(repair, "command") as command,
+            ):
+                self.assertEqual(repair.prepare_display(root), before)
+            self.assertEqual(
+                dropin.read_bytes(), original.replace(b"Requires=", b"Wants=")
+            )
+            self.assertEqual(
+                (root / "display-manager-httpboot.conf.before").read_bytes(), original
+            )
+            command.assert_called_once_with("systemctl", "daemon-reload")
+
+    def test_custom_display_dependencies_refuse_restart(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dropin = root / "httpboot.conf"
+            original = b"[Unit]\nRequires=custom-service.service\n"
+            dropin.write_bytes(original)
+            with (
+                patch.object(repair, "DISPLAY_DROPIN", dropin),
+                patch.object(
+                    repair, "display_state", return_value={"Requires": repair.UNIT}
+                ),
+                patch.object(repair, "command") as command,
+            ):
+                with self.assertRaisesRegex(ValueError, "custom display dependency"):
+                    repair.prepare_display(root)
+                command.assert_not_called()
+            self.assertEqual(dropin.read_bytes(), original)
+
     def test_unknown_function_refused(self):
         with self.assertRaisesRegex(ValueError, "Unrecognized"):
             repair.replacement(
@@ -84,6 +143,10 @@ class RepairTests(unittest.TestCase):
                     return SimpleNamespace(stdout="overlay\n")
                 if args[:2] == ("systemctl", "is-system-running"):
                     return SimpleNamespace(stdout="running\n")
+                if args[:3] == ("systemctl", "show", "display-manager.service"):
+                    return SimpleNamespace(
+                        stdout="ActiveState=inactive\nMainPID=0\nRequires=\nBindsTo=\n"
+                    )
                 if args == ("systemctl", "restart", repair.UNIT):
                     return SimpleNamespace(stdout="")
                 raise AssertionError(args)

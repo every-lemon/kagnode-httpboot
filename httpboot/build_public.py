@@ -235,7 +235,7 @@ def install_client(root):
         link.symlink_to("../" + target.name)
     atomic(
         root / "etc/systemd/system/display-manager.service.d/httpboot.conf",
-        "[Unit]\nRequires=httpboot-client-v2.service\nAfter=httpboot-client-v2.service\n",
+        "[Unit]\nWants=httpboot-client-v2.service\nAfter=httpboot-client-v2.service\n",
         0o644,
     )
     pam = root / "etc/pam.d/common-session"
