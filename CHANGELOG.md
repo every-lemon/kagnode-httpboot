@@ -1,5 +1,7 @@
 ## Unreleased — 3.1.16 qualification
 
+- Fix update downloads failing when their progress callback supplies its own elapsed time; retain transfer measurements and stage timing fallback.
+
 - Treat unknown serial-console dimensions as 80 × 24, keep pairing codes and transfer status visible, and use readable text on genuinely tiny terminals.
 
 ## 3.1.16-beta.3 — Web console 0.1.0 (source preview)

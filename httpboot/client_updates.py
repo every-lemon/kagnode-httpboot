@@ -70,10 +70,12 @@ class Updates:
             now = time.time()
             previous = self.state.get("message")
             self.state.update(
-                message=message,
-                updated=now,
-                elapsed_seconds=round(now - self.state.get("started", now)),
-                **values,
+                {
+                    "elapsed_seconds": round(now - self.state.get("started", now)),
+                    **values,
+                    "message": message,
+                    "updated": now,
+                }
             )
             if previous != message:
                 self.state["logs"] = (
