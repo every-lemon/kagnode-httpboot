@@ -14,6 +14,10 @@ Packaging prereleases do not change the latest stable release or establish new h
 
 ## Features
 
+- Persistent branded download dialogs, bounded authenticated resume retries, verified kernel handoff checks and driver/link diagnostics.
+- A KagNode × Ubuntu desktop splash recipe with an explicit diagnostic-media option. New image and hardware qualification remain pending.
+- Web controls for approved Client account assignments, image/kernel inspection and report filtering/downloads.
+
 - Separate Server authority, Builder tooling and Client integration.
 - Account assignment, image delivery, persistence and recovery.
 - Private routed web console with independent access controls.
@@ -67,6 +71,8 @@ python3 scripts/release.py --output dist/packages
 Install the formatting dependencies from `requirements-format.txt`. Package building additionally needs `dpkg-deb`, `rpmbuild`, XZ support and, for CLI binaries, Go. Read [the repository map](docs/STRUCTURE.md) before editing generated files.
 
 ## Documentation
+
+- [Startup, splash and web controls](docs/BOOT-EXPERIENCE.md)
 
 - [Repository structure](docs/STRUCTURE.md)
 - [Operations](docs/OPERATIONS.md)

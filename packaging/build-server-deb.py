@@ -67,6 +67,7 @@ MODULES = (
     "sober_check.py",
     "boot_reports.py",
     "boot_client_v2.py",
+    "boot_splash.py",
     "build_public.py",
     "image_paths.py",
     "build_support.py",
@@ -109,6 +110,11 @@ def tree(root, builder=False):
     fonts.mkdir(parents=True, exist_ok=True)
     for name in ("DejaVuSansMono.ttf", "DejaVuSansMono-LICENSE.txt"):
         shutil.copyfile(SOURCE / "httpboot/assets/fonts" / name, fonts / name)
+    artwork = base / "httpboot/assets/boot"
+    artwork.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(
+        SOURCE / "httpboot/assets/boot/kagnode.png", artwork / "kagnode.png"
+    )
     helpers = base / "scripts"
     helpers.mkdir()
     shutil.copyfile(SOURCE / "scripts/migrate-paths.py", helpers / "migrate-paths.py")

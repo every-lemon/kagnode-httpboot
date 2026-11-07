@@ -14,6 +14,10 @@
         "Client accounts",
         "Accounts available from the HTTP Boot authority.",
       ],
+      images: [
+        "Images & kernels",
+        "Inspect published images, kernel versions and architecture.",
+      ],
       reports: [
         "Boot reports",
         "Read the latest retained, sanitized Client diagnostics.",
@@ -32,6 +36,7 @@
     generation = 0,
     lastRender = "",
     accountSignature = "";
+  let editingClient = null;
   const node = (tag, text, cls) => {
     const e = document.createElement(tag);
     if (text !== undefined) e.textContent = String(text);
@@ -87,6 +92,11 @@
     $("workspace").hidden = true;
     $("connect-screen").hidden = false;
     $("console-token").value = "";
+    $("assignment-dialog").close();
+    $("assignment-choices").replaceChildren();
+    $("assignment-client").textContent = "";
+    $("assignment-feedback").textContent = "";
+    editingClient = null;
     $("connect-error").hidden = true;
     closeNavigation();
     $("console-token").focus();
@@ -194,7 +204,7 @@
           "status-badge" + (approved ? "" : " pending"),
         );
       const action = approved
-        ? node("span", "Enrolled", "small muted")
+        ? node("button", "Manage accounts", "button")
         : expired
           ? node("span", "Start pairing again on the Client", "small muted")
           : node("button", "Review pairing", "button");
@@ -209,11 +219,36 @@
             block: "center",
           });
         };
-      return [name, status, approved ? "—" : client.code, action];
+      if (approved)
+        action.onclick = () => {
+          editingClient = client.id;
+          $("assignment-client").textContent =
+            clientName(client) + " · " + client.id;
+          $("assignment-feedback").textContent = "";
+          $("assignment-choices").replaceChildren();
+          for (const account of accounts) {
+            const label = node("label", undefined, "account-choice"),
+              input = node("input");
+            input.type = "checkbox";
+            input.value = account.name;
+            input.checked = (client.accounts || []).includes(account.name);
+            label.append(input, node("span", account.name));
+            $("assignment-choices").append(label);
+          }
+          $("assignment-dialog").showModal();
+        };
+      return [
+        name,
+        status,
+        approved
+          ? (client.accounts || []).join(", ") || "No accounts assigned"
+          : client.code,
+        action,
+      ];
     });
     if (rows.length)
       $("client-list").replaceChildren(
-        table(["Client", "Status", "Pairing code", "Action"], rows),
+        table(["Client", "Status", "Accounts / pairing code", "Action"], rows),
       );
     else
       empty(
@@ -268,8 +303,26 @@
           "Create a Client account on the Server before assigning it.",
         );
     }
+    const images = state.images || [];
+    if (images.length)
+      $("image-list").replaceChildren(
+        table(
+          ["Release", "Status", "Kernel", "Architecture", "Artifacts"],
+          images.map((i) => [
+            i.release,
+            i.active ? "Current" : "Retained",
+            i.kernel,
+            i.architecture,
+            (i.size / 1024 ** 3).toFixed(2) + " GiB",
+          ]),
+        ),
+      );
+    else empty($("image-list"), "No published image records are available.");
     $("report-list").replaceChildren();
-    for (const report of reports) {
+    const term = $("report-filter").value.trim().toLowerCase();
+    for (const report of reports.filter(
+      (r) => !term || JSON.stringify(r).toLowerCase().includes(term),
+    )) {
       const details = node("details", undefined, "report-card"),
         summary = node("summary"),
         title = node(
@@ -286,12 +339,31 @@
         pre = node("pre", JSON.stringify(report, null, 2));
       summary.append(title, status);
       details.append(summary, pre);
+      const save = node("button", "Download report", "button");
+      save.type = "button";
+      save.onclick = () => {
+        const url = URL.createObjectURL(
+            new Blob([JSON.stringify(report, null, 2)], {
+              type: "application/json",
+            }),
+          ),
+          a = node("a");
+        a.href = url;
+        a.download = "kagnode-boot-report.json";
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      };
+      details.append(save);
       $("report-list").append(details);
     }
-    if (!reports.length)
+    if (!$("report-list").children.length)
       empty(
         $("report-list"),
-        "No recent diagnostic reports are retained. New Client reports will appear here.",
+        reports.length
+          ? "No reports match this filter."
+          : "No recent diagnostic reports are retained. New Client reports will appear here.",
       );
   }
   async function refresh() {
@@ -370,6 +442,35 @@
         } catch {}
         $("console-token").value = "";
       } else token = "";
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $("report-filter").addEventListener("input", () => render());
+  $("assignment-close").onclick = () => $("assignment-dialog").close();
+  $("assignment-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = event.currentTarget.querySelector('[type="submit"]'),
+      epoch = generation;
+    if (!editingClient) return;
+    button.disabled = true;
+    $("assignment-feedback").textContent = "Saving account access…";
+    try {
+      await call("/api/assignments", {
+        device: editingClient,
+        accounts: [
+          ...$("assignment-choices").querySelectorAll("input:checked"),
+        ].map((i) => i.value),
+      });
+      if (epoch !== generation) return;
+      $("assignment-dialog").close();
+      await refresh();
+      feedback("Client account access updated.");
+    } catch (error) {
+      if (epoch === generation)
+        $("assignment-feedback").textContent = error.status
+          ? error.message
+          : "Outcome unconfirmed. Refresh status before retrying.";
     } finally {
       button.disabled = false;
     }

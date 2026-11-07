@@ -56,6 +56,8 @@ class ReleaseTests(unittest.TestCase):
             files = [
                 "httpboot/build_public.py",
                 "httpboot/image_paths.py",
+                "httpboot/boot_splash.py",
+                "httpboot/assets/boot/kagnode.png",
                 *[f"httpboot/{name}" for name in CLIENT_MODULES],
                 *[f"client/{name}" for name in CLIENT_INPUTS],
                 "httpboot/assets/fonts/DejaVuSansMono.ttf",

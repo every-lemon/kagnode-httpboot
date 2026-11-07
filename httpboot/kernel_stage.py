@@ -32,9 +32,9 @@ def sections(path):
             raise ValueError("Truncated EFI section table")
         name = data[header : header + 8].rstrip(b"\0").decode("ascii")
         size, _, raw_size, raw_offset = struct.unpack_from("<IIII", data, header + 8)
-        if size > raw_size or raw_offset + size > len(data):
-            raise ValueError("Truncated EFI payload")
-        if name in (".linux", ".initrd", ".cmdline"):
+        if name in (".linux", ".initrd", ".cmdline", ".uname"):
+            if not size or size > raw_size or raw_offset + size > len(data):
+                raise ValueError("Truncated EFI payload")
             if name in result:
                 raise ValueError("Duplicate EFI payload")
             result[name] = data[raw_offset : raw_offset + size]
@@ -70,7 +70,12 @@ def identity_overlay(identity):
     return gzip.compress(bytes(output), mtime=0)
 
 
-def launch(parts, release, identity, recovery=False):
+def launch(parts, release, identity, recovery=False, expected_kernel=None):
+    if ".uname" in parts and expected_kernel:
+        if parts[".uname"].rstrip(b"\0").decode("utf-8").strip() != expected_kernel:
+            raise ValueError(
+                "Verified EFI kernel does not match the selected image kernel"
+            )
     with tempfile.TemporaryDirectory(prefix="httpboot-kexec-", dir="/run") as temporary:
         work = Path(temporary)
         atomic(work / "kernel", parts[".linux"])
@@ -80,7 +85,7 @@ def launch(parts, release, identity, recovery=False):
             initrd + bytes((-len(initrd)) % 4) + identity_overlay(identity),
         )
         command = parts[".cmdline"].rstrip(b"\0").decode("utf-8").strip()
-        if "init=/bin/sh" in command.split():
+        if any(token.startswith(("init=", "rdinit=")) for token in command.split()):
             raise ValueError("Unsupported startup repair command line")
         command += " httpboot.kernel-repair=1 httpboot.release=" + release
         if recovery:
@@ -117,7 +122,12 @@ def transition(server, identity, selected, progress):
             work / "boot.efi",
             progress,
         )
-        launch(sections(work / "boot.efi"), selected["release"], identity)
+        launch(
+            sections(work / "boot.efi"),
+            selected["release"],
+            identity,
+            expected_kernel=selected.get("kernel"),
+        )
 
 
 def offline_transition(identity, selected, cache=None):
@@ -140,4 +150,10 @@ def offline_transition(identity, selected, cache=None):
         raise ValueError(
             "Matching verified recovery kernel is not cached; use diagnostics or compatible boot media"
         )
-    launch(sections(image), selected["release"], identity, recovery=True)
+    launch(
+        sections(image),
+        selected["release"],
+        identity,
+        recovery=True,
+        expected_kernel=selected.get("kernel"),
+    )

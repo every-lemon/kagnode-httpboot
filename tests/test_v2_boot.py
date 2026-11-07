@@ -43,6 +43,12 @@ class BootTests(unittest.TestCase):
                 data[256 + index * 64 : 256 + index * 64 + len(content)] = content
             file.write_bytes(data)
             self.assertEqual(sections(file)[".linux"], b"kernel")
+            # Zero-filled PE sections have no on-disk body and are not payloads.
+            struct.pack_into("<H", data, 70, 4)
+            data[208:216] = b".bss\0\0\0\0"
+            struct.pack_into("<IIII", data, 216, 4096, 0, 0, 0)
+            file.write_bytes(data)
+            self.assertEqual(sections(file)[".linux"], b"kernel")
             struct.pack_into("<H", data, 68, 0xAA64)
             file.write_bytes(data)
             with self.assertRaisesRegex(ValueError, "amd64"):

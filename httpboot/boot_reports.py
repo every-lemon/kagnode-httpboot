@@ -129,10 +129,16 @@ def collect(stage, code="none"):
     interfaces = []
     for interface in sorted(Path("/sys/class/net").glob("*")):
         driver = interface / "device/driver"
+        try:
+            link_state = (interface / "operstate").read_text().strip()
+        except OSError:
+            link_state = "unknown"
         interfaces.append(
             interface.name
             + " driver="
             + (driver.resolve().name if driver.exists() else "none")
+            + " state="
+            + link_state
         )
     details = {
         "kernel": os.uname().release,
@@ -144,7 +150,11 @@ def collect(stage, code="none"):
     lines = [
         line
         for line in kernel_log.splitlines()
-        if re.search(r"rtw|iwl|firmware|xhci|mmc|rtsx", line, re.I)
+        if re.search(
+            r"rtw|iwl|firmware|xhci|mmc|rtsx|e1000|r8169|r8152|virtio_net|igc|igb|carrier|link.*down",
+            line,
+            re.I,
+        )
         and not re.search(
             r"password|passphrase|psk|private.key|ssid|/home/", line, re.I
         )

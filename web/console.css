@@ -718,3 +718,38 @@ legend {
   height: 19px;
   flex-shrink: 0;
 }
+
+#assignment-dialog {
+  border: 1px solid var(--kn-line, #34363c);
+  background: var(--kn-surface, #17191c);
+  color: var(--kn-text, #f4f5f7);
+  border-radius: 20px;
+  padding: 24px;
+  width: min(600px, calc(100% - 28px));
+  max-height: 90dvh;
+  overflow: auto;
+}
+#assignment-dialog::backdrop {
+  background: #0009;
+  backdrop-filter: blur(4px);
+}
+#assignment-dialog h2 {
+  font-size: 20px;
+  margin: 0;
+}
+#assignment-dialog p {
+  line-height: 1.6;
+}
+#assignment-dialog fieldset {
+  border: 1px solid var(--kn-line, #34363c);
+  border-radius: 12px;
+  margin: 20px 0;
+}
+#assignment-dialog legend {
+  font-size: 12px;
+  padding: 0 8px;
+}
+#report-filter {
+  width: 100%;
+  margin: 8px 0 20px;
+}

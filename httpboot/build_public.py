@@ -38,6 +38,7 @@ MODULES = (
 PACKAGES = (
     "ubuntu-desktop-minimal",
     "gdm3",
+    "plymouth",
     "linux-generic-hwe-24.04",
     "linux-firmware",
     "initramfs-tools",
@@ -143,6 +144,12 @@ CLIENT_INPUTS = (
 def image_recipe(source=SOURCE):
     source = Path(source)
     inputs = [source / "httpboot/build_public.py", source / "httpboot/image_paths.py"]
+    inputs.extend(
+        (
+            source / "httpboot/boot_splash.py",
+            source / "httpboot/assets/boot/kagnode.png",
+        )
+    )
     inputs.extend(source / "httpboot" / name for name in CLIENT_MODULES)
     inputs.extend(source / "client" / name for name in sorted(CLIENT_INPUTS))
     inputs.extend(
@@ -184,6 +191,9 @@ def finalize_runtime_resolver(root):
 
 
 def install_client(root):
+    from boot_splash import install
+
+    install(root)
     lib = client_library(root)
     for name in CLIENT_MODULES:
         shutil.copyfile(SOURCE / "httpboot" / name, lib / name)
@@ -815,9 +825,19 @@ def build(args):
             for target in reversed(mounted):
                 run(["umount", "-R", target])
             mounted.clear()
+            from boot_splash import boot_commandline
+
             for name, cmdline in (
-                ("boot.efi", "console=tty0 loglevel=3"),
-                ("recovery.efi", "console=tty0 loglevel=3 httpboot.recovery=1"),
+                (
+                    "boot.efi",
+                    boot_commandline(debug=getattr(args, "boot_details", False)),
+                ),
+                (
+                    "recovery.efi",
+                    boot_commandline(
+                        recovery=True, debug=getattr(args, "boot_details", False)
+                    ),
+                ),
             ):
                 run(
                     [
@@ -889,6 +909,11 @@ def main():
     parser.add_argument("--legacy-config", type=Path)
     parser.add_argument("--refresh-packages", action="store_true")
     parser.add_argument("--validate-startup", action="store_true")
+    parser.add_argument(
+        "--boot-details",
+        action="store_true",
+        help="Prepare diagnostic media with boot messages instead of the graphical splash",
+    )
     parser.add_argument(
         "--drivers", type=Path, help="Administrator-approved driver import store"
     )

@@ -260,7 +260,7 @@ class ImageHandler(Handler):
                     pass
 
 
-def download(
+def _download_once(
     url, release, name, meta, credentials, target, progress=lambda **values: None
 ):
     if name not in ARTIFACTS or not RELEASE.fullmatch(release):
@@ -334,7 +334,9 @@ def download(
                 )
             out.flush()
             os.fsync(out.fileno())
-        if done != meta["size"] or sha256(partial) != meta["sha256"]:
+        if done != meta["size"]:
+            raise http.client.IncompleteRead(b"", meta["size"] - done)
+        if sha256(partial) != meta["sha256"]:
             raise ValueError(
                 "Image download failed verification; partial transfer retained"
             )
@@ -342,3 +344,37 @@ def download(
         return target
     finally:
         connection.close()
+
+
+def download(
+    url, release, name, meta, credentials, target, progress=lambda **values: None
+):
+    """Retry transient transport interruptions, never trust or disk failures."""
+    import socket
+
+    for attempt in range(1, 4):
+        try:
+            return _download_once(
+                url, release, name, meta, credentials, target, progress
+            )
+        except ssl.SSLError:
+            raise
+        except (
+            ConnectionError,
+            TimeoutError,
+            socket.gaierror,
+            http.client.IncompleteRead,
+            http.client.RemoteDisconnected,
+        ):
+            if attempt == 3:
+                raise
+            partial = Path(target).with_name(Path(target).name + ".partial")
+            done = partial.stat().st_size if partial.is_file() else 0
+            progress(
+                bytes_done=done,
+                bytes_total=meta["size"],
+                bytes_per_second=0,
+                eta_seconds=None,
+                retry_attempt=attempt + 1,
+            )
+            time.sleep(attempt)
