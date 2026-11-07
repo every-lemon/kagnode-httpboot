@@ -14,6 +14,7 @@ from product_version import DEBIAN_VERSION as VERSION
 
 MODULES = (
     "account_sync.py",
+    "ecosystem_updates.py",
     "product_version.py",
     "client_power.py",
     "session_leases.py",
