@@ -53,6 +53,8 @@ See [operations and existing setup instructions](docs/OPERATIONS.md) for the ful
 
 ## Configuration and storage
 
+Shared presentation uses [KagNode Core](docs/CORE.md), with a pinned local fallback and reviewed server adapters. Compatible stable UI patches have a separate local-administrator policy.
+
 Retain existing server authority, image stores and verified user saves. Source packaging never builds a Client image or restarts native services.
 
 ## Security

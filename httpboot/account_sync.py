@@ -263,6 +263,16 @@ class ProfileLinks:
         }
 
     def handle(self, uid, name, admin, action="state", data=None, installation=""):
+        if action.startswith("core."):
+            if not admin:
+                raise AccountLinkError("Local administrator access is required.", 403)
+            try:
+                from kagnode_core import manager_request
+
+                return manager_request("httpboot", action.removeprefix("core."), data)
+            except (ValueError, OSError) as error:
+                raise AccountLinkError(str(error), 400) from error
+
         if action.startswith("updates."):
             if not admin:
                 raise AccountLinkError("Local administrator access is required.", 403)
