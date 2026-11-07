@@ -70,6 +70,22 @@ class Progress:
         self.label = "Preparing startup"
         self.interactive = sys.stdin.isatty() and os.environ.get("TERM", "") != "dumb"
 
+    def display(self, label, details=""):
+        """Keep the identity inside the dialog; terminal redraws erase banners."""
+        try:
+            screen = os.get_terminal_size(sys.stdin.fileno())
+            columns, rows = screen.columns, screen.lines
+        except (OSError, ValueError, AttributeError):
+            columns, rows = 80, 24
+        width, height = max(20, min(88, columns - 2)), max(8, min(23, rows - 2))
+        art = (
+            startup_banner(min(45, width - 8)).rstrip() if height >= 20 else "KagNode."
+        )
+        content = art + "\n\nHTTP Boot · " + label
+        if details:
+            content += "\n" + details
+        return content, str(height), str(width)
+
     def stage(self, label):
         self.close()
         self.label = label
@@ -78,6 +94,7 @@ class Progress:
         if not self.interactive:
             print(label, flush=True)
         else:
+            content, height, width = self.display(label)
             with open(
                 os.ttyname(sys.stdin.fileno())
                 if sys.stdin.isatty()
@@ -90,9 +107,9 @@ class Progress:
                         "--title",
                         "KagNode. HTTP Boot",
                         "--infobox",
-                        label,
-                        "10",
-                        "78",
+                        content,
+                        height,
+                        width,
                     ],
                     stdout=console,
                     stderr=console,
@@ -110,11 +127,19 @@ class Progress:
         self.last = now
         elapsed = int(now - self.started)
         eta = values.get("eta_seconds")
-        line = f"{self.label}\n{done / 1024**2:.1f} / {total / 1024**2:.1f} MiB | {values.get('bytes_per_second', 0) / 1024**2:.1f} MiB/s\nElapsed {elapsed}s | ETA {int(eta) if eta is not None else 'unknown'}s"
+        detail = f"{done / 1024**2:.1f} / {total / 1024**2:.1f} MiB | {values.get('bytes_per_second', 0) / 1024**2:.1f} MiB/s\nElapsed {elapsed}s | ETA {int(eta) if eta is not None else 'unknown'}s"
+        if values.get("retry_attempt"):
+            detail += (
+                "\nConnection interrupted; resuming verified transfer (attempt "
+                + str(values["retry_attempt"])
+                + " of 3)"
+            )
+        line = self.label + "\n" + detail
         if not self.interactive:
             print(line.replace("\n", " | "), flush=True)
             return
         try:
+            line, height, width = self.display(self.label, detail)
             if self.process is None:
                 self.console = open(
                     os.ttyname(sys.stdin.fileno())
@@ -129,8 +154,8 @@ class Progress:
                         "KagNode. HTTP Boot",
                         "--gauge",
                         line,
-                        "12",
-                        "78",
+                        height,
+                        width,
                         "0",
                     ],
                     stdin=subprocess.PIPE,

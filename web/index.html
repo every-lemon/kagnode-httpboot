@@ -132,6 +132,17 @@
               <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
             </svg>
             Client accounts</a
+          ><a href="/images" data-route
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              aria-hidden="true"
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M3 10h18M8 15h3" /></svg
+            >Images &amp; kernels</a
           ><a href="/reports" data-route
             ><svg
               viewBox="0 0 24 24"
@@ -323,7 +334,27 @@
                   <p>Sanitized diagnostics retained by the Server.</p>
                 </div>
               </header>
+              <label for="report-filter"
+                >Filter reports<input
+                  id="report-filter"
+                  type="search"
+                  placeholder="Stage, kernel or driver…"
+              /></label>
               <div id="report-list"></div>
+            </section>
+          </section>
+          <section data-view="images" hidden>
+            <section class="panel">
+              <header class="section-heading">
+                <div>
+                  <h2>Published images and kernels</h2>
+                  <p>
+                    Verified releases available to Clients. Publishing and
+                    rollback remain separate from this read-only view.
+                  </p>
+                </div>
+              </header>
+              <div id="image-list"></div>
             </section>
           </section>
           <section id="access-view" data-view="access" hidden>
@@ -373,5 +404,34 @@
         </footer>
       </div>
     </div>
+    <dialog id="assignment-dialog" aria-labelledby="assignment-title">
+      <form id="assignment-form">
+        <header class="section-heading">
+          <h2 id="assignment-title">Client account access</h2>
+          <button
+            type="button"
+            id="assignment-close"
+            class="button"
+            aria-label="Close account assignments"
+          >
+            Close
+          </button>
+        </header>
+        <p id="assignment-client" class="small muted"></p>
+        <p>
+          Choose existing accounts allowed on this Client. Removing an account
+          with an active persistent session is blocked until its work is saved
+          and it signs out.
+        </p>
+        <fieldset>
+          <legend>Allowed accounts</legend>
+          <div id="assignment-choices" class="account-choices"></div>
+        </fieldset>
+        <p id="assignment-feedback" role="status"></p>
+        <button type="submit" class="button primary">
+          Save account access
+        </button>
+      </form>
+    </dialog>
   </body>
 </html>

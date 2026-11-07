@@ -15,7 +15,7 @@ from common import atomic
 from control_transport import issue, storage_failure
 from server_web_assets import HTML, ASSETS, UI_VERSION
 
-PAGES = {"/", "/overview", "/clients", "/accounts", "/reports", "/access"}
+PAGES = {"/", "/overview", "/clients", "/accounts", "/images", "/reports", "/access"}
 CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
 
@@ -66,6 +66,34 @@ def read_state(authority):
             dict(row)
             for row in db.execute("SELECT name,system_admin FROM accounts ORDER BY uid")
         ]
+        for client in clients:
+            client["accounts"] = [
+                r[0]
+                for r in db.execute(
+                    "SELECT name FROM assignments WHERE device=? ORDER BY name",
+                    (client["id"],),
+                )
+            ]
+        images = []
+        if db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='images'"
+        ).fetchone():
+            for row in db.execute(
+                "SELECT id,manifest,active FROM images ORDER BY created DESC LIMIT 20"
+            ):
+                manifest = json.loads(row["manifest"])
+                images.append(
+                    {
+                        "release": row["id"],
+                        "active": bool(row["active"]),
+                        "kernel": manifest.get("kernel", "Unknown"),
+                        "architecture": manifest.get("architecture", "Unknown"),
+                        "size": sum(
+                            a.get("size", 0)
+                            for a in manifest.get("artifacts", {}).values()
+                        ),
+                    }
+                )
     reports = []
     paths = (authority.database.parent / "reports").glob("*/*.json")
     for path in sorted(paths, key=lambda item: item.stat().st_mtime, reverse=True)[:30]:
@@ -79,12 +107,64 @@ def read_state(authority):
         "health": "Server authority ready",
         "clients": clients,
         "accounts": accounts,
+        "images": images,
         "reports": reports,
         "boothealth": health(authority),
         "defaults": approval_defaults(authority),
         "console_version": UI_VERSION,
         "authority_version": VERSION,
     }
+
+
+class ConsoleConflict(ValueError):
+    pass
+
+
+def update_assignments(authority, data):
+    if not isinstance(data, dict) or set(data) != {"device", "accounts"}:
+        raise ValueError("Invalid account assignment")
+    peer, names = data["device"], data["accounts"]
+    if (
+        not isinstance(peer, str)
+        or not isinstance(names, list)
+        or len(names) > 64
+        or any(not isinstance(n, str) or not 0 < len(n) <= 128 for n in names)
+        or len(set(names)) != len(names)
+    ):
+        raise ValueError("Invalid Client or accounts")
+    with authority.db() as db:
+        authority.device(db, peer)
+        known = {row[0] for row in db.execute("SELECT name FROM accounts")}
+        if not set(names) <= known:
+            raise ValueError("Unknown Client account")
+        current = {
+            row[0]
+            for row in db.execute(
+                "SELECT name FROM assignments WHERE device=?", (peer,)
+            )
+        }
+        for name in current - set(names):
+            if db.execute(
+                "SELECT 1 FROM sessions WHERE name=? AND device=?", (name, peer)
+            ).fetchone():
+                raise ConsoleConflict(
+                    "Save work and sign out of the active Client account before removing its assignment."
+                )
+        for name in current - set(names):
+            db.execute(
+                "DELETE FROM assignments WHERE name=? AND device=?", (name, peer)
+            )
+        for name in set(names) - current:
+            db.execute(
+                "INSERT INTO assignments(name,device) VALUES (?,?)", (name, peer)
+            )
+    print(
+        "HTTP Boot console: account assignments changed for approved Client; count="
+        + str(len(names)),
+        file=sys.stderr,
+        flush=True,
+    )
+    return {"ok": True}
 
 
 def existing_authority(database):
@@ -293,6 +373,22 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                     return
                 if self.command in ("GET", "HEAD") and path == "/api/state":
                     result = read_state(authority)
+                elif self.command == "POST" and path == "/api/assignments":
+                    lengths = self.headers.get_all("Content-Length", [])
+                    if (
+                        len(lengths) != 1
+                        or self.headers.get("Transfer-Encoding")
+                        or self.headers.get_content_type() != "application/json"
+                    ):
+                        raise ValueError(
+                            "A bounded JSON assignment request is required"
+                        )
+                    size = int(lengths[0])
+                    if not 0 < size <= 8192:
+                        raise ValueError("Assignment request exceeds size limit")
+                    result = update_assignments(
+                        authority, json.loads(self.rfile.read(size))
+                    )
                 elif self.command == "POST" and path == "/api/approve":
                     lengths = self.headers.get_all("Content-Length", [])
                     if len(lengths) != 1 or self.headers.get("Transfer-Encoding"):
@@ -338,6 +434,8 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                 body, status, retry = storage_failure(error)
                 self.close_connection = True
                 self.send(status, json.dumps(body).encode(), retry_after=retry)
+            except ConsoleConflict as error:
+                self.send(409, json.dumps({"error": str(error)}).encode())
             except (ValueError, KeyError, TypeError, json.JSONDecodeError):
                 self.send(
                     400,

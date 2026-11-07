@@ -22,6 +22,10 @@ class ClientImagePathTests(unittest.TestCase):
             )
             (root / "etc/cups").mkdir(parents=True)
             (root / "etc/cups/cupsd.conf").write_text("Listen localhost:631\n")
+            (root / "usr/share/plymouth").mkdir(parents=True)
+            (root / "usr/share/plymouth/ubuntu-logo.png").write_bytes(
+                b"distribution-logo-fixture"
+            )
             previous = os.umask(0o077)
             try:
                 with patch("build_public.run"):

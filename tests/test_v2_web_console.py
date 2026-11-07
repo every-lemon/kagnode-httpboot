@@ -87,6 +87,57 @@ class RoutedConsoleTests(unittest.TestCase):
         self.assertNotIn(b"PRIVATE-HASH", body)
         self.assertNotIn(b"password_hash", body)
 
+    def test_assignment_controls_are_atomic_private_and_protect_active_work(self):
+        with self.authority.db() as db:
+            db.execute("INSERT INTO devices(id,approved) VALUES ('approved-client',1)")
+            db.execute(
+                "INSERT INTO accounts(name,uid,gid,password_hash,access) VALUES ('second',1002,1002,'SECOND-PRIVATE-HASH','local')"
+            )
+        headers = {
+            "Authorization": "Bearer " + self.token,
+            "Content-Type": "application/json",
+        }
+        body = json.dumps({"device": "approved-client", "accounts": ["fixture"]})
+        self.assertEqual(self.request("POST", "/api/assignments", body)[0], 401)
+        self.assertEqual(
+            self.request(
+                "POST",
+                "/api/assignments",
+                body,
+                {**headers, "Origin": "https://evil.example"},
+            )[0],
+            403,
+        )
+        self.assertEqual(
+            self.request("POST", "/api/assignments", body, headers)[0], 200
+        )
+        self.assertEqual(
+            self.request("POST", "/api/assignments", body, headers)[0], 200
+        )
+        with self.authority.db() as db:
+            db.execute(
+                "INSERT INTO sessions(name,device,token,created) VALUES ('fixture','approved-client','FIXTURE-ONLY',0)"
+            )
+        update = json.dumps({"device": "approved-client", "accounts": ["second"]})
+        status, _, raw = self.request("POST", "/api/assignments", update, headers)
+        self.assertEqual(status, 409)
+        self.assertIn(b"Save work", raw)
+        with self.authority.db(write=False) as db:
+            self.assertEqual(
+                [
+                    r[0]
+                    for r in db.execute(
+                        "SELECT name FROM assignments WHERE device='approved-client'"
+                    )
+                ],
+                ["fixture"],
+            )
+        status, _, raw = self.request("GET", "/api/state", headers=headers)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)["clients"][0]["accounts"], ["fixture"])
+        self.assertIn("images", json.loads(raw))
+        self.assertNotIn(b"SECOND-PRIVATE-HASH", raw)
+
     def test_host_origin_and_approval_validation(self):
         auth = {
             "Authorization": "Bearer " + self.token,

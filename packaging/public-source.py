@@ -53,6 +53,7 @@ def files():
         )
     ]
     selected += [Path("assets/kagnode-wordmark.svg"), Path("scripts/build-web.py")]
+    selected += [Path("httpboot/assets/boot/kagnode.png")]
     selected += [
         p.relative_to(ROOT) for p in sorted((ROOT / "web").glob("*")) if p.is_file()
     ]

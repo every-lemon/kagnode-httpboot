@@ -14,7 +14,7 @@ TimeoutStopSec=1800
 Restart=on-failure
 RestartSec=10
 UMask=0077
-StandardOutput=journal+console
+StandardOutput=journal
 StandardError=journal+console
 [Install]
 WantedBy=multi-user.target
