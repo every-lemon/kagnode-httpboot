@@ -21,6 +21,21 @@ new = (repo / "httpboot/client_updates.py").read_bytes()
 
 
 class RepairTests(unittest.TestCase):
+    def test_canonical_and_legacy_layouts_are_detected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "opt/kagnode/httpboot/client"
+            legacy = root / "usr/local/lib/httpboot"
+            self.assertIsNone(repair.select_root((canonical, legacy)))
+            legacy.mkdir(parents=True)
+            for name in ("client_updates.py", "client_power.py"):
+                (legacy / name).write_text("# fixture")
+            self.assertEqual(repair.select_root((canonical, legacy)), legacy)
+            canonical.mkdir(parents=True)
+            for name in ("client_updates.py", "client_power.py"):
+                (canonical / name).write_text("# fixture")
+            self.assertEqual(repair.select_root((canonical, legacy)), canonical)
+
     def test_known_module_fixed_idempotently(self):
         self.assertEqual(repair.replacement(old), new)
         self.assertEqual(repair.replacement(new), new)

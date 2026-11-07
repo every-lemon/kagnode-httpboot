@@ -54,7 +54,25 @@ POWER_GUARD = ast.dump(
 """).body[0],
     include_attributes=False,
 )
-ROOT = pathlib.Path("/opt/kagnode/httpboot/client")
+ROOTS = (
+    pathlib.Path("/opt/kagnode/httpboot/client"),
+    pathlib.Path("/usr/local/lib/httpboot"),
+)
+
+
+def select_root(roots):
+    return next(
+        (
+            root
+            for root in roots
+            if (root / "client_updates.py").is_file()
+            and (root / "client_power.py").is_file()
+        ),
+        None,
+    )
+
+
+ROOT = select_root(ROOTS) or ROOTS[0]
 RUN = pathlib.Path("/run/httpboot-v2")
 UNIT = "httpboot-client-v2.service"
 
@@ -94,7 +112,8 @@ def journal():
 
 
 def state(name):
-    code = "import sys,json;sys.path.insert(0,'/opt/kagnode/httpboot/client');from client_agent import rpc;print(json.dumps(rpc('state',timeout=10)))"
+    code = "import sys,json;sys.path.insert(0,ROOT_PLACEHOLDER);from client_agent import rpc;print(json.dumps(rpc('state',timeout=10)))"
+    code = code.replace("ROOT_PLACEHOLDER", repr(str(ROOT)))
     return json.loads(
         command(
             "runuser", "-u", name, "--", "/usr/bin/python3", "-c", code, timeout=15
