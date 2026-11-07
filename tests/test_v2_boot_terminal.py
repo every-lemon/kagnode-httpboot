@@ -20,6 +20,44 @@ ROOT = Path(__file__).resolve().parents[1]
     shutil.which("whiptail") and shutil.which("setsid"), "Terminal tools unavailable"
 )
 class BootTerminalTests(unittest.TestCase):
+    def test_zero_dimension_progress_dialog_shows_complete_pairing_instruction(self):
+        master, slave = pty.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 0, 0, 0, 0))
+        code = (
+            "import sys; sys.path.insert(0, sys.argv[1]); "
+            "from boot_ui import Progress; "
+            "Progress().stage('Pairing code: ABC123 Please configure your server to allow this client.')"
+        )
+        process = subprocess.Popen(
+            ["python3", "-c", code, str(ROOT / "httpboot")],
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            env={**os.environ, "TERM": "xterm"},
+            start_new_session=True,
+        )
+        os.close(slave)
+        raw = b""
+        deadline = time.monotonic() + 10
+        try:
+            while time.monotonic() < deadline:
+                if select.select([master], [], [], 0.1)[0]:
+                    try:
+                        raw += os.read(master, 65536)
+                    except OSError:
+                        break
+                elif process.poll() is not None:
+                    break
+            self.assertEqual(process.wait(timeout=2), 0)
+            self.assertIn(b"Pairing code: ABC123", raw)
+            self.assertIn(b"Please configure your server to allow this client.", raw)
+            self.assertIn(b"KagNode.", raw)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGTERM)
+                process.wait(timeout=3)
+            os.close(master)
+
     def test_short_warning_accepts_enter_after_identity_menu(self):
         master, slave = pty.openpty()
         terminal = os.ttyname(slave)

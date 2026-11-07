@@ -81,7 +81,7 @@ class Progress:
         # Early serial consoles can return a successful ioctl with zero dimensions.
         columns, rows = columns or 80, rows or 24
         width, height = max(20, min(88, columns - 2)), max(8, min(23, rows - 2))
-        body = "HTTP Boot · " + label
+        body = label
         if details:
             body += "\n" + details
         wrapped = sum(
