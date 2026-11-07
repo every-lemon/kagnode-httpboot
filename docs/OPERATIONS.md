@@ -23,6 +23,10 @@ From your workstation, forward the private listener with `ssh -L 8084:127.0.0.1:
 
 The UI uses the shared KagNode styling, keyboard focus, small-screen navigation and reduced-motion support. Readable sources are under `web/`; regenerate the committed asset module with `ESBUILD=/path/to/esbuild python3 scripts/build-web.py` (esbuild 0.28.2). Delivered CSS/JS are minified and fingerprinted without public source maps. This helps identify builds and cache assets; it cannot prevent browser inspection or reuse allowed by the license.
 
+## Repairing update progress
+
+If an older Client reports `dict.update() got multiple values for keyword argument 'elapsed_seconds'`, run `sudo python3 scripts/repair_update_progress.py` from a checked source checkout **on that Client**. `--check` validates compatibility without modifying files. The helper recognizes only the affected progress method, backs up the original in private RAM storage, waits for saves and update operations to finish, and checks the existing ordinary-service-restart guard before restarting the Client authority. It verifies session identities after restart; it does not reboot, release accounts or close applications. Choose **Retry** in the Updates page if staging does not resume automatically. An unfamiliar Client revision is refused rather than overwritten. Future images must include the corrected `client_updates.py`; this runtime repair alone does not change a signed image.
+
 ## Build and verify
 
 Use Ubuntu 24.04 and the dependencies in the CI workflow. Build packages with `packaging/build-server-deb.py`; `packaging/public-source.py` creates an allowlisted source archive. Run `python3 -m unittest discover -s tests -p 'test_v2*.py' -v`. Image builds and hardware qualification are separate operations with their own resource requirements and evidence.

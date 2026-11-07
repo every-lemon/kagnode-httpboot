@@ -2,6 +2,7 @@ import hashlib
 import http.client
 import importlib.util
 import io
+import json
 import os
 import socket
 import ssl
@@ -349,6 +350,38 @@ class CertificateTests(unittest.TestCase):
                     thread.join(3)
 
 
+class UpdateProgressTests(unittest.TestCase):
+    def test_download_timings_and_byte_counts_are_persisted(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            agent = SimpleNamespace(run=root)
+            updates = Updates(agent)
+            updates.state = {"state": "running", "started": 100.0, "logs": []}
+            with patch("client_updates.time.time", return_value=105.0):
+                updates.progress(
+                    "Downloading boot.efi",
+                    phase="downloading",
+                    bytes_done=1024,
+                    bytes_total=4096,
+                    bytes_per_second=2048.0,
+                    elapsed_seconds=0.5,
+                    eta_seconds=1.5,
+                )
+            state = updates.snapshot()
+            self.assertEqual(state["elapsed_seconds"], 0.5)
+            self.assertEqual(state["bytes_done"], 1024)
+            self.assertEqual(state["bytes_total"], 4096)
+            self.assertEqual(state["eta_seconds"], 1.5)
+            self.assertEqual(state["state"], "running")
+            self.assertEqual(json.loads(updates.path.read_text()), state)
+            self.assertEqual(
+                json.loads((root / "update-current.json").read_text()), state
+            )
+            with patch("client_updates.time.time", return_value=107.0):
+                updates.progress("Checking boot media", phase="download-complete")
+            self.assertEqual(updates.snapshot()["elapsed_seconds"], 7)
+
+
 class InterruptedUpdateTests(unittest.TestCase):
     def test_failed_recovery_commit_does_not_replace_working_efi(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -382,6 +415,13 @@ class InterruptedUpdateTests(unittest.TestCase):
 
             def download(url, release, name, metadata, credentials, target, progress):
                 target.write_bytes(name.encode())
+                progress(
+                    bytes_done=len(name),
+                    bytes_total=len(name),
+                    bytes_per_second=42.0,
+                    elapsed_seconds=0.25,
+                    eta_seconds=0.0,
+                )
 
             def command(args, **kwargs):
                 return SimpleNamespace(stdout="/dev/fixture", returncode=0)
