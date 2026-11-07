@@ -6,6 +6,7 @@ import ssl
 import sys
 import tempfile
 import unittest
+import textwrap
 from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
 
@@ -47,6 +48,67 @@ class StartupPresentationTests(unittest.TestCase):
         self.assertIn("resuming", content)
         self.assertLessEqual(len(content.splitlines()), int(height) - 4)
         self.assertLessEqual(int(width), 78)
+
+    def test_zero_size_serial_console_keeps_pairing_code_visible(self):
+        with patch("sys.stdout", io.StringIO()):
+            progress = Progress()
+        with patch("os.get_terminal_size", return_value=os.terminal_size((0, 0))):
+            content, height, width = progress.display(
+                "Pairing code: ABC123 Please configure your server to allow this client."
+            )
+        self.assertEqual((int(height), int(width)), (22, 78))
+        self.assertIn("Pairing code: ABC123", content)
+        self.assertIn("Please configure your server to allow this client.", content)
+        self.assertIn("#", content)
+        self.assertLessEqual(
+            sum(
+                max(1, len(textwrap.wrap(line, int(width) - 6)))
+                for line in content.splitlines()
+            ),
+            int(height) - 8,
+        )
+
+    def test_download_details_fit_with_logo_after_wrapping(self):
+        with patch("sys.stdout", io.StringIO()):
+            progress = Progress()
+        for dimensions in [(80, 24), (40, 24), (120, 30)]:
+            with (
+                self.subTest(dimensions=dimensions),
+                patch(
+                    "os.get_terminal_size", return_value=os.terminal_size(dimensions)
+                ),
+            ):
+                content, height, width = progress.display(
+                    "Downloading and verifying the Client image",
+                    "100 / 4000 MiB | 20 MiB/s\nElapsed 5s | ETA 195s\n"
+                    "Connection interrupted; resuming verified transfer (attempt 2 of 3)",
+                )
+                self.assertIn("KagNode.", content)
+                self.assertIn("ETA 195s", content)
+                self.assertLessEqual(
+                    sum(
+                        max(1, len(textwrap.wrap(line, int(width) - 6)))
+                        for line in content.splitlines()
+                    ),
+                    int(height) - 8,
+                )
+
+    def test_tiny_terminal_prints_full_status_instead_of_clipping_dialog(self):
+        with patch("sys.stdout", io.StringIO()):
+            progress = Progress()
+        progress.interactive = True
+        output = io.StringIO()
+        with (
+            patch("os.get_terminal_size", return_value=os.terminal_size((20, 8))),
+            patch("sys.stdout", output),
+            patch("boot_ui.subprocess.run") as run,
+        ):
+            progress.stage(
+                "Pairing code: ABC123 Please configure your server to allow this client."
+            )
+        run.assert_not_called()
+        self.assertIn("Pairing code: ABC123", output.getvalue())
+        self.assertIn("allow this client.", output.getvalue())
 
     def test_splash_uses_distribution_art_and_preserves_diagnostics(self):
         with tempfile.TemporaryDirectory() as temp:
