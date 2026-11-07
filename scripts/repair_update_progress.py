@@ -20,7 +20,7 @@ OLD = """def progress(self, message, **values):
         dump(self.path, self.state)
         dump(self.agent.run / "update-current.json", self.state)
 """
-NEW = """def progress(self, message, **values):
+INTERMEDIATE = """def progress(self, message, **values):
     with self.state_lock:
         now = time.time()
         previous = self.state.get("message")
@@ -39,21 +39,50 @@ NEW = """def progress(self, message, **values):
         dump(self.path, self.state)
         dump(self.agent.run / "update-current.json", self.state)
 """
-POWER_GUARD = ast.dump(
-    ast.parse("""def main():
-    # ExecStop also runs during an ordinary service restart. Preserve its live
-    # RAM journal; cleanup is only for an actual OS shutdown/reboot.
-    state = subprocess.run(
-        ["systemctl", "is-system-running"], capture_output=True, text=True
-    ).stdout.strip()
-    if state != "stopping":
-        return
-    from client_agent import rpc
-
-    rpc("shutdown-cleanup")
-""").body[0],
-    include_attributes=False,
-)
+NEW = """def progress(self, message, **values):
+    with self.state_lock:
+        now = time.time()
+        previous = self.state.get("message")
+        old_state = self.state.get("state")
+        old_phase = self.state.get("phase")
+        reset = {}
+        if values.get("phase", old_phase) != old_phase or (
+            previous != message and "bytes_total" not in values
+        ):
+            reset = {
+                "bytes_done": 0,
+                "bytes_total": 0,
+                "bytes_per_second": 0,
+                "eta_seconds": None,
+                "io_stage": None,
+                "percent": 0,
+            }
+        self.state.update(
+            {
+                **reset,
+                "elapsed_seconds": round(now - self.state.get("started", now)),
+                **values,
+                "message": message,
+                "updated": now,
+            }
+        )
+        if previous != message:
+            self.state["logs"] = (
+                self.state.get("logs", []) + [{"time": now, "message": message}]
+            )[-200:]
+        # RAM status stays responsive; durable phase changes are preserved.
+        # Repeated transfer samples need not fsync the boot card per MiB.
+        dump(self.agent.run / "update-current.json", self.state)
+        if (
+            previous != message
+            or old_state != self.state.get("state")
+            or old_phase != self.state.get("phase")
+            or now - getattr(self, "_last_progress_persist", 0) >= 10
+        ):
+            dump(self.path, self.state)
+            self._last_progress_persist = now
+"""
+POWER_GUARD = "FunctionDef(name='main', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[Assign(targets=[Name(id='state', ctx=Store())], value=Call(func=Attribute(value=Attribute(value=Call(func=Attribute(value=Name(id='subprocess', ctx=Load()), attr='run', ctx=Load()), args=[List(elts=[Constant(value='systemctl'), Constant(value='is-system-running')], ctx=Load())], keywords=[keyword(arg='capture_output', value=Constant(value=True)), keyword(arg='text', value=Constant(value=True))]), attr='stdout', ctx=Load()), attr='strip', ctx=Load()), args=[], keywords=[])), If(test=Compare(left=Name(id='state', ctx=Load()), ops=[NotEq()], comparators=[Constant(value='stopping')]), body=[Return()], orelse=[]), ImportFrom(module='client_agent', names=[alias(name='rpc')], level=0), Expr(value=Call(func=Name(id='rpc', ctx=Load()), args=[Constant(value='shutdown-cleanup')], keywords=[]))], decorator_list=[], type_params=[])"
 ROOTS = (
     pathlib.Path("/opt/kagnode/httpboot/client"),
     pathlib.Path("/usr/local/lib/httpboot"),
@@ -75,6 +104,9 @@ def select_root(roots):
 ROOT = select_root(ROOTS) or ROOTS[0]
 RUN = pathlib.Path("/run/httpboot-v2")
 UNIT = "httpboot-client-v2.service"
+DISPLAY_DROPIN = pathlib.Path(
+    "/etc/systemd/system/display-manager.service.d/httpboot.conf"
+)
 
 
 def replacement(raw):
@@ -87,11 +119,14 @@ def replacement(raw):
         n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "progress"
     )
     observed = ast.dump(node, include_attributes=False)
-    expected = ast.dump(ast.parse(OLD).body[0], include_attributes=False)
+    expected = {
+        ast.dump(ast.parse(value).body[0], include_attributes=False)
+        for value in (OLD, INTERMEDIATE)
+    }
     fixed = ast.dump(ast.parse(NEW).body[0], include_attributes=False)
     if observed == fixed:
         return raw
-    if observed != expected:
+    if observed not in expected:
         raise ValueError("Unrecognized progress function; no changes made")
     lines = text.splitlines(keepends=True)
     lines[node.lineno - 1 : node.end_lineno] = [
@@ -134,6 +169,67 @@ def workers():
         ):
             return True
     return False
+
+
+def write_atomic(path, data):
+    fd, temporary = tempfile.mkstemp(prefix=".httpboot-repair-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def display_state():
+    text = command(
+        "systemctl",
+        "show",
+        "display-manager.service",
+        "-p",
+        "ActiveState",
+        "-p",
+        "MainPID",
+        "-p",
+        "Requires",
+        "-p",
+        "BindsTo",
+    ).stdout
+    return dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
+
+
+def prepare_display(backup):
+    before = display_state()
+    strong = (
+        lambda data: UNIT
+        in (data.get("Requires", "") + " " + data.get("BindsTo", "")).split()
+    )
+    if not strong(before):
+        return before
+    expected = ("[Unit]\nRequires=" + UNIT + "\nAfter=" + UNIT + "\n").encode()
+    if (
+        not DISPLAY_DROPIN.is_file()
+        or DISPLAY_DROPIN.is_symlink()
+        or DISPLAY_DROPIN.read_bytes() != expected
+    ):
+        raise ValueError(
+            "A custom display dependency would close the desktop during restart. No Client service restart was performed"
+        )
+    (backup / "display-manager-httpboot.conf.before").write_bytes(expected)
+    (backup / "display-manager-httpboot.conf.before").chmod(0o600)
+    write_atomic(DISPLAY_DROPIN, expected.replace(b"Requires=", b"Wants="))
+    command("systemctl", "daemon-reload")
+    if strong(display_state()):
+        write_atomic(DISPLAY_DROPIN, expected)
+        command("systemctl", "daemon-reload")
+        raise ValueError(
+            "Another display dependency still requires the Client authority. No service restart was performed"
+        )
+    return before
 
 
 def main():
@@ -195,6 +291,12 @@ def main():
         or backup.stat().st_mode & 0o077
     ):
         raise ValueError("Unsafe backup directory; no changes made")
+    if fixed == raw and all(
+        "elapsed_seconds" not in item["operation"].get("message", "") for item in states
+    ):
+        print("The progress fix is already installed; no services restarted")
+        return
+    display_before = prepare_display(backup)
     digest = hashlib.sha256(raw).hexdigest()
     saved = backup / (digest + ".py")
     if not saved.exists():
@@ -231,6 +333,14 @@ def main():
                     "Repair installed, but Client service has not become ready. Do not reboot; inspect its service log"
                 )
             time.sleep(2)
+    display_after = display_state()
+    if display_before.get("ActiveState") == "active" and (
+        display_after.get("ActiveState") != "active"
+        or display_before.get("MainPID") != display_after.get("MainPID")
+    ):
+        raise RuntimeError(
+            "The display manager changed unexpectedly. Inspect its service log before further maintenance"
+        )
     (backup / "result.json").write_text(
         json.dumps(
             {

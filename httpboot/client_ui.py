@@ -96,6 +96,8 @@ def main():
             self.operation = self.label(self.pages["Updates"], "")
             self.progress = Gtk.ProgressBar()
             self.progress.set_show_text(True)
+            self.update_pulsing = False
+            GLib.timeout_add(120, self.pulse_update)
             self.pages["Updates"].pack_start(self.progress, False, False, 0)
             self.prepare_button = self.button(
                 self.pages["Updates"],
@@ -762,6 +764,16 @@ def main():
                 lambda _: self.refresh_printers(),
             )
 
+        def pulse_update(self):
+            settings = Gtk.Settings.get_default()
+            if (
+                self.update_pulsing
+                and self.get_visible()
+                and settings.get_property("gtk-enable-animations")
+            ):
+                self.progress.pulse()
+            return True
+
         def refresh(self):
             if self.refreshing:
                 return True
@@ -846,7 +858,9 @@ def main():
             )
             if phase == "ready-to-restart":
                 fraction = 1
-            self.progress.set_fraction(fraction)
+            self.update_pulsing = operation.get("state") == "running" and not total
+            if not self.update_pulsing:
+                self.progress.set_fraction(fraction)
             if total:
                 eta = operation.get("eta_seconds")
                 remaining = (
@@ -854,9 +868,18 @@ def main():
                     if eta is not None
                     else "Estimating remaining time"
                 )
-                text = f"{done / 1048576:.1f} / {total / 1048576:.1f} MiB · {operation.get('bytes_per_second', 0) / 1048576:.1f} MiB/s · {operation.get('elapsed_seconds', 0)}s elapsed · {remaining}"
+                text = f"{done / 1048576:.1f} / {total / 1048576:.1f} MiB · {operation.get('bytes_per_second', 0) / 1048576:.1f} MiB/s · {float(operation.get('elapsed_seconds', 0)):.0f}s elapsed · {remaining}"
             else:
                 text = {
+                    "writing-card": "Waiting for the boot device"
+                    if operation.get("io_stage") == "flushing"
+                    else "Writing boot media",
+                    "flushing-card": "Flushing boot media",
+                    "card-readback": "Checking boot-media readback",
+                    "preparing-rollback": "Preserving previous startup files",
+                    "committing-recovery": "Committing verified recovery generation",
+                    "promoting-card": "Promoting verified startup files",
+                    "promotion-readback": "Checking promoted startup files",
                     "ready-to-restart": "Verified and ready to restart",
                     "applied": "This update is running",
                     "idle": "No update in progress",

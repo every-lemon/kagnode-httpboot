@@ -1,6 +1,7 @@
 """Background Client updates: verify transfer and card readback, then await restart."""
 
 import json
+import hashlib
 import os
 import subprocess
 import threading
@@ -13,22 +14,57 @@ from image_delivery import download
 from boot_client_v2 import verify_manifest
 
 
-def copy_verified(source, target, checksum):
+def copy_verified(source, target, checksum, progress=None):
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
+    size = Path(source).stat().st_size
+    started = time.monotonic()
+    last_report = 0.0
+
+    def report(done, step, force=False):
+        nonlocal last_report
+        now = time.monotonic()
+        if progress is None or (not force and now - last_report < 0.5):
+            return
+        last_report = now
+        elapsed = max(0.001, now - started)
+        total = 0 if step == "flushing" else size * 2
+        speed = done / elapsed
+        progress(
+            bytes_done=done if total else 0,
+            bytes_total=total,
+            bytes_per_second=speed if total else 0,
+            elapsed_seconds=elapsed,
+            eta_seconds=(total - done) / speed if total and speed else None,
+            io_stage=step,
+        )
+
     descriptor, temporary = tempfile.mkstemp(
         prefix=".httpboot-update-", dir=target.parent
     )
     try:
+        done = 0
         with os.fdopen(descriptor, "wb") as out, open(source, "rb") as stream:
-            shutil.copyfileobj(stream, out, 1024 * 1024)
+            while block := stream.read(1024 * 1024):
+                out.write(block)
+                done += len(block)
+                report(done, "copying")
             out.flush()
+            report(done, "flushing", True)
             os.fsync(out.fileno())
-        if sha256(temporary) != checksum:
+        digest = hashlib.sha256()
+        with open(temporary, "rb") as check:
+            while block := check.read(1024 * 1024):
+                digest.update(block)
+                done += len(block)
+                report(done, "verifying")
+        if digest.hexdigest() != checksum:
             raise ValueError("Startup-file copy failed verification")
+        report(done, "verifying", True)
         os.replace(temporary, target)
         directory = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY)
         try:
+            report(done, "flushing", True)
             os.fsync(directory)
         finally:
             os.close(directory)
@@ -69,8 +105,23 @@ class Updates:
         with self.state_lock:
             now = time.time()
             previous = self.state.get("message")
+            old_state = self.state.get("state")
+            old_phase = self.state.get("phase")
+            reset = {}
+            if values.get("phase", old_phase) != old_phase or (
+                previous != message and "bytes_total" not in values
+            ):
+                reset = {
+                    "bytes_done": 0,
+                    "bytes_total": 0,
+                    "bytes_per_second": 0,
+                    "eta_seconds": None,
+                    "io_stage": None,
+                    "percent": 0,
+                }
             self.state.update(
                 {
+                    **reset,
                     "elapsed_seconds": round(now - self.state.get("started", now)),
                     **values,
                     "message": message,
@@ -81,8 +132,17 @@ class Updates:
                 self.state["logs"] = (
                     self.state.get("logs", []) + [{"time": now, "message": message}]
                 )[-200:]
-            dump(self.path, self.state)
+            # RAM status stays responsive; durable phase changes are preserved.
+            # Repeated transfer samples need not fsync the boot card per MiB.
             dump(self.agent.run / "update-current.json", self.state)
+            if (
+                previous != message
+                or old_state != self.state.get("state")
+                or old_phase != self.state.get("phase")
+                or now - getattr(self, "_last_progress_persist", 0) >= 10
+            ):
+                dump(self.path, self.state)
+                self._last_progress_persist = now
 
     def snapshot(self):
         with self.state_lock:
@@ -180,7 +240,15 @@ class Updates:
                             cache / name,
                             candidate / name,
                             selected["artifacts"][name]["sha256"],
+                            progress=lambda **values: self.progress(
+                                "Writing " + name + " to boot media",
+                                phase="writing-card",
+                                **values,
+                            ),
                         )
+                    self.progress(
+                        "Flushing candidate boot files", phase="flushing-card"
+                    )
                     subprocess.run(["umount", str(media)], check=True)
                     subprocess.run(
                         [
@@ -202,6 +270,9 @@ class Updates:
                             raise ValueError("Boot card readback failed")
                     destination = media / "EFI/BOOT/BOOTX64.EFI"
                     recovery = media / "EFI/HTTPBOOT/RECOVERY.EFI"
+                    self.progress(
+                        "Preserving previous startup files", phase="preparing-rollback"
+                    )
                     # Retain the old startup pair and recovery cache for manual rollback.
                     backup = media / "httpboot-v2/previous"
                     backup.mkdir(exist_ok=True)
@@ -215,9 +286,16 @@ class Updates:
                             shutil.copyfile(old, backup / label)
                     from recovery_cache import publish
 
+                    self.progress(
+                        "Committing verified recovery generation",
+                        phase="committing-recovery",
+                    )
                     recovery_generation = publish(identity, selected, candidate)
                     # Recovery must be durable before the default bootstrap can
                     # change. A failed cache commit keeps the working EFI pair.
+                    self.progress(
+                        "Promoting verified startup files", phase="promoting-card"
+                    )
                     copy_verified(
                         candidate / "recovery.efi",
                         recovery,
@@ -249,6 +327,9 @@ class Updates:
                             recovery_generation / "recovery.squashfs",
                         ),
                     ):
+                        self.progress(
+                            "Checking promoted " + name, phase="promotion-readback"
+                        )
                         if sha256(path) != selected["artifacts"][name]["sha256"]:
                             raise ValueError(
                                 "Promoted boot-card readback failed; previous startup files retained"

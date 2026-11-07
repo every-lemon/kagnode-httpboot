@@ -1,5 +1,8 @@
 ## Unreleased — 3.1.16 qualification
 
+- Show boot-media copy, flush and readback stages separately, with measured copy progress and an indeterminate state during device waits. Coalesce durable progress samples to reduce boot-card fsync traffic.
+- Keep desktop sessions running during ordinary Client-authority restarts while retaining startup ordering and PAM session checks; guard legacy runtime repair against custom display dependencies.
+
 - Fix update downloads failing when their progress callback supplies its own elapsed time; retain transfer measurements and stage timing fallback.
 
 - Treat unknown serial-console dimensions as 80 × 24, keep pairing codes and transfer status visible, and use readable text on genuinely tiny terminals.
