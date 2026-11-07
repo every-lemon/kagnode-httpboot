@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import time
+import textwrap
 
 
 # Generated from the canonical mark and original block lettering.
@@ -77,13 +78,32 @@ class Progress:
             columns, rows = screen.columns, screen.lines
         except (OSError, ValueError, AttributeError):
             columns, rows = 80, 24
+        # Early serial consoles can return a successful ioctl with zero dimensions.
+        columns, rows = columns or 80, rows or 24
         width, height = max(20, min(88, columns - 2)), max(8, min(23, rows - 2))
-        art = (
-            startup_banner(min(45, width - 8)).rstrip() if height >= 20 else "KagNode."
-        )
-        content = art + "\n\nHTTP Boot · " + label
+        body = label
         if details:
-            content += "\n" + details
+            body += "\n" + details
+        wrapped = sum(
+            max(1, len(textwrap.wrap(line, max(1, width - 6))))
+            for line in body.splitlines()
+        )
+        if columns < 32 or rows < 12 or wrapped > height - 8:
+            # Keep essential pairing/error text visible on a genuinely tiny terminal.
+            self.interactive = False
+            return body, str(height), str(width)
+        budget = height - 8 - wrapped - 2
+        full = startup_banner(min(45, width - 8)).rstrip()
+        small = "\n".join(LOGO_SMALL.splitlines()[1:8:2] + ["  KagNode."])
+        art = next(
+            (
+                candidate
+                for candidate in (full, small, "KagNode.")
+                if len(candidate.splitlines()) <= budget
+            ),
+            "",
+        )
+        content = (art + "\n\n" if art else "") + body
         return content, str(height), str(width)
 
     def stage(self, label):
@@ -95,6 +115,9 @@ class Progress:
             print(label, flush=True)
         else:
             content, height, width = self.display(label)
+            if not self.interactive:
+                print(content, flush=True)
+                return
             with open(
                 os.ttyname(sys.stdin.fileno())
                 if sys.stdin.isatty()
@@ -140,6 +163,9 @@ class Progress:
             return
         try:
             line, height, width = self.display(self.label, detail)
+            if not self.interactive:
+                print(line, flush=True)
+                return
             if self.process is None:
                 self.console = open(
                     os.ttyname(sys.stdin.fileno())
