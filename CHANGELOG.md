@@ -1,3 +1,9 @@
+## Ecosystem update panel — packaging preview 2
+
+- Add local-administrator update checks, review and progress through KagNode CLI.
+- Keep local permissions, CSRF checks, data paths and native provisioning unchanged.
+- Source preview only; no new hardware qualification or native deployment claim.
+
 ## Unreleased — 3.1.16 qualification
 
 - Show boot-media copy, flush and readback stages separately, with measured copy progress and an indeterminate state during device waits. Coalesce durable progress samples to reduce boot-card fsync traffic.
