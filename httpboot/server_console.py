@@ -1,5 +1,6 @@
 """Private, routed KagNode HTTP Boot console backed by the existing authority."""
 
+import kagnode_core
 import hmac
 import json
 import os
@@ -266,7 +267,14 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                     "Cache-Control",
                     "public, max-age=31536000, immutable" if immutable else "no-store",
                 ),
-                ("Content-Security-Policy", CSP),
+                (
+                    "Content-Security-Policy",
+                    CSP.replace(
+                        "connect-src 'self'",
+                        "connect-src 'self' https://nebulacoder.com",
+                    ),
+                ),
+                ("Cross-Origin-Opener-Policy", "same-origin-allow-popups"),
                 ("X-Content-Type-Options", "nosniff"),
                 ("X-Frame-Options", "DENY"),
                 ("Referrer-Policy", "no-referrer"),
@@ -298,7 +306,21 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                     return
                 path = urlsplit(self.path).path
                 if self.command in ("GET", "HEAD") and path in PAGES:
-                    self.send(200, HTML.encode(), "text/html; charset=utf-8")
+                    self.send(
+                        200,
+                        kagnode_core.inject(HTML, "httpboot").encode(),
+                        "text/html; charset=utf-8",
+                    )
+                    return
+                if self.command in ("GET", "HEAD") and path.startswith(
+                    "/kagnode-core/"
+                ):
+                    selected = kagnode_core.asset(path)
+                    if not selected:
+                        self.send(404, b"Core asset unavailable", "text/plain")
+                    else:
+                        raw, mime = selected
+                        self.send(200, raw, mime, True)
                     return
                 if self.command in ("GET", "HEAD") and path in ASSETS:
                     mime, body = ASSETS[path]
@@ -333,7 +355,10 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                         403, b'{"error":"Same-origin console requests are required."}'
                     )
                     return
-                if path == "/api/kagnode-account" and profile_links is not None:
+                if (
+                    path == "/api/kagnode-account"
+                    or path.startswith("/api/v1/kagnode-core/")
+                ) and profile_links is not None:
                     data = {}
                     if self.command == "POST":
                         lengths = self.headers.get_all("Content-Length", [])
@@ -361,7 +386,9 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                             "console-owner",
                             "Server administrator",
                             True,
-                            str(data.get("action", "state")),
+                            ("core." + path.rsplit("/", 1)[-1])
+                            if path.startswith("/api/v1/kagnode-core/")
+                            else str(data.get("action", "state")),
                             data,
                             "http://" + host,
                         )

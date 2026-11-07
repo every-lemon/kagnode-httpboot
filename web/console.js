@@ -76,6 +76,7 @@
     $("page-feedback").hidden = !message;
   }
   function lock() {
+    window.KagNodeCore?.setSession({ authenticated: false });
     generation++;
     token = "";
     state = null;
@@ -376,6 +377,10 @@
       const next = await call("/api/state");
       if (epoch !== generation || !token) return false;
       state = next;
+      window.KagNodeCore?.setSession({
+        authenticated: true,
+        subject: "console-owner",
+      });
       try {
         sessionStorage.setItem(key, token);
         sessionStorage.removeItem("token");
@@ -547,19 +552,7 @@
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeNavigation();
   });
-  try {
-    const theme = localStorage.getItem("kagnode.theme");
-    if (["light", "dark"].includes(theme))
-      document.documentElement.dataset.theme = theme;
-  } catch {}
-  $("theme-toggle").onclick = () => {
-    const next =
-      document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    try {
-      localStorage.setItem("kagnode.theme", next);
-    } catch {}
-  };
+  // Appearance is controlled by KagNode Core account preferences.
   document.addEventListener("visibilitychange", () => {
     clearTimeout(timer);
     if (!document.hidden && token) refresh();

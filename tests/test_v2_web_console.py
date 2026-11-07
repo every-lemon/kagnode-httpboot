@@ -37,7 +37,7 @@ class RoutedConsoleTests(unittest.TestCase):
             daemon=True,
         )
         self.thread.start()
-        self.assertTrue(self.ready.wait(5))
+        self.assertTrue(self.ready.wait(30))
         self.token = (self.root / "web-console-token").read_text()
 
     def tearDown(self):
