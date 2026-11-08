@@ -1,4 +1,5 @@
 [
+  ".github/workflows/account-link.yml",
   ".github/workflows/ci.yml",
   ".github/workflows/packaging.yml",
   ".gitignore",
@@ -135,6 +136,7 @@
   "scripts/repair_update_progress.py",
   "scripts/repository_check.py",
   "scripts/verify_packages.py",
+  "tests/browser_account_link.py",
   "tests/test_account_sync.py",
   "tests/test_repository_release.py",
   "tests/test_v2_authority.py",
