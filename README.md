@@ -8,7 +8,7 @@ Network boot, authenticated image delivery, desktop persistence and recovery too
 
 ## Release status
 
-Product source: **3.1.16-beta.3**. Packaging preview: **3.1.16-beta.3.packaging.7**.
+Product source: **3.1.16-beta.3**. Packaging preview: **3.1.16-beta.3.packaging.8**.
 
 Packaging prereleases do not change the latest stable release or establish new hardware or service compatibility. See [verification](docs/VERIFICATION.md) and [changelog](CHANGELOG.md).
 
