@@ -68,6 +68,7 @@ def files():
     selected += [
         p.relative_to(ROOT) for p in sorted((ROOT / "tests").glob("test_v2*.py"))
     ]
+    selected += [Path("tests/test_web_provider_login.py")]
     selected += [
         Path("httpboot/assets/fonts") / name
         for name in ("DejaVuSansMono.ttf", "DejaVuSansMono-LICENSE.txt")

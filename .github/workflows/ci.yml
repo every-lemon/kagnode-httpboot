@@ -42,3 +42,4 @@ jobs:
           tar -xzf build/source.tar.gz -C build/public
           cd build/public
           /usr/bin/python3 -m unittest discover -s tests -p 'test_v2*.py' -v
+          /usr/bin/python3 -m unittest discover -s tests -p test_web_provider_login.py -v
