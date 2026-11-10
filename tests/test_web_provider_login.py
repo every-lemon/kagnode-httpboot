@@ -200,6 +200,27 @@ class WebProviderTests(unittest.TestCase):
         self.links.handle("console-owner", "Owner", True, "disconnect")
         self.assertFalse(sessions.valid(fresh))
 
+    def test_disconnected_owner_cannot_be_restored_by_an_old_continuation(self):
+        from account_login import AccountSignIns
+        from account_sync import AccountLinkError
+
+        self.link()
+        signins = AccountSignIns(self.links)
+        browser = "B" * 43
+        attempt = signins.start(browser, "https://console.example.test")["attempt_id"]
+        signins.status(browser, attempt)
+        self.links.handle("console-owner", "Owner", False, "disconnect")
+        with self.links.db() as db:
+            db.execute(
+                "UPDATE sign_in_attempts SET link_stamp=? WHERE id=?",
+                (self.links.stamp("console-owner"), attempt),
+            )
+        with self.assertRaises(AccountLinkError):
+            signins.finish(browser, attempt, "console-owner")
+        self.assertFalse(
+            self.links.state("console-owner", "Owner", refresh=False)["connected"]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
