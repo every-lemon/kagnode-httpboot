@@ -37,6 +37,53 @@
     lastRender = "",
     accountSignature = "";
   let editingClient = null;
+  let providerEnabled = false,
+    providerCsrf = "";
+  async function providerState() {
+    const response = await fetch("/api/kagnode-login", {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    if (!response.ok) throw Error("Provider unavailable.");
+    const data = await response.json();
+    providerEnabled = data.enabled === true;
+    providerCsrf = data.csrf;
+    $("provider-login").hidden = !providerEnabled;
+    window.KagNodeLogin?.refresh();
+  }
+  window.KagNodeLoginHost = {
+    state: () => ({ enabled: providerEnabled }),
+    request: async (action, data) => {
+      if (action === "start") await providerState();
+      const response = await fetch("/api/kagnode-login", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": providerCsrf,
+        },
+        body: JSON.stringify({ action, ...data }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw Error(result.error || "Unable to connect.");
+      return result;
+    },
+    complete: async (result) => {
+      if (
+        result.continuation !== "console" ||
+        !/^[A-Za-z0-9_-]{43}$/.test(result.console_session || "")
+      )
+        throw Error("Invalid console session.");
+      token = result.console_session;
+      generation++;
+      pending = false;
+      if (!(await refresh())) {
+        token = "";
+        throw Error("Unable to open console.");
+      }
+    },
+  };
+  providerState().catch(() => {});
   const node = (tag, text, cls) => {
     const e = document.createElement(tag);
     if (text !== undefined) e.textContent = String(text);
@@ -532,8 +579,16 @@
   });
   addEventListener("popstate", view);
   $("refresh").onclick = refresh;
-  $("lock-console").onclick = lock;
-  $("access-lock").onclick = lock;
+  const lockConsole = async () => {
+    try {
+      if (token) await call("/api/console/logout", {});
+    } catch {}
+    lock();
+    window.KagNodeLogin?.reset($("connect-screen"));
+    providerState().catch(() => {});
+  };
+  $("lock-console").onclick = lockConsole;
+  $("access-lock").onclick = lockConsole;
   $("reveal-token").onclick = () => {
     const show = $("console-token").type === "password";
     $("console-token").type = show ? "text" : "password";

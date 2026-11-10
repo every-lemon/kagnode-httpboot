@@ -1,3 +1,10 @@
+# Web account sign-in preview
+
+- Use the locally served shared Core login frame with explicit KagNode confirmation and bounded, browser-bound sign-in attempts.
+- Refresh newly consented verified contact email alongside name and photo; preserve local policy, roles and offline sign-in.
+- HTTP Boot Web accepts only the explicitly linked console owner. Confirmation creates a separate, bounded 30-minute console session; it never returns or replaces the local console credential. Locking the console revokes that temporary session. Disabling profile sync or disconnecting the owner invalidates provider sessions. Native Server/Client accounts, image builds and physical machines are unchanged.
+- Web/source preview only; no native service or hardware qualification is implied.
+
 ## Ecosystem update panel — packaging preview 2
 
 ## Update recovery status preview

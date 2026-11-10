@@ -13,6 +13,7 @@ sys.path.insert(0, str(SOURCE / "httpboot"))
 from product_version import DEBIAN_VERSION as VERSION
 
 MODULES = (
+    "account_login.py",
     "account_sync.py",
     "ecosystem_updates.py",
     "kagnode_core.py",

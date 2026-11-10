@@ -2,6 +2,8 @@
 
 import kagnode_core
 import hmac
+import hashlib
+import time
 import json
 import os
 import stat
@@ -215,6 +217,60 @@ def console_credential(path, persist=False):
     return token
 
 
+class ConsoleSessions:
+    """Short-lived web credentials; native console credentials are never returned."""
+
+    def __init__(self, profiles, clock=time.monotonic):
+        self.profiles, self.clock = profiles, clock
+        self.entries = {}
+        self.lock = threading.RLock()
+
+    def issue(self, subject):
+        with self.lock:
+            now = self.clock()
+            self.entries = {
+                key: value
+                for key, value in self.entries.items()
+                if value["expires"] > now
+            }
+            if len(self.entries) >= 32:
+                raise ValueError(
+                    "Too many active console sessions. Lock an existing session or wait for it to expire."
+                )
+            value = secrets.token_urlsafe(32)
+            self.entries[hashlib.sha256(value.encode()).hexdigest()] = {
+                "subject": subject,
+                "stamp": self.profiles.stamp("console-owner"),
+                "expires": now + 1800,
+            }
+            return value
+
+    def valid(self, credential):
+        key = hashlib.sha256(credential.encode()).hexdigest()
+        with self.lock:
+            entry = self.entries.get(key)
+            if not entry:
+                return False
+            with self.profiles.db() as db:
+                linked = db.execute(
+                    "SELECT subject FROM links WHERE local_id='console-owner'"
+                ).fetchone()
+            if (
+                entry["expires"] <= self.clock()
+                or not self.profiles.enabled()[0]
+                or self.profiles.stamp("console-owner") != entry["stamp"]
+                or not linked
+                or linked[0] != entry["subject"]
+            ):
+                self.entries.pop(key, None)
+                return False
+            return True
+
+    def revoke(self, credential):
+        with self.lock:
+            self.entries.pop(hashlib.sha256(credential.encode()).hexdigest(), None)
+
+
 def serve(authority, pki, port=8081, credential_name="console-token"):
     if credential_name not in ("console-token", "web-console-token"):
         raise ValueError("Invalid console credential name")
@@ -230,6 +286,11 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
         if credential_name == "web-console-token"
         else None
     )
+
+    from account_login import AccountSignIns
+
+    signins = AccountSignIns(profile_links) if profile_links else None
+    web_sessions = ConsoleSessions(profile_links) if profile_links else None
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "KagNodeHTTPBoot"
@@ -258,6 +319,7 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
             mime="application/json",
             immutable=False,
             retry_after=None,
+            extra_headers=(),
         ):
             self.send_response(status)
             for key, value in [
@@ -280,6 +342,8 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                 ("Referrer-Policy", "no-referrer"),
                 ("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
             ]:
+                self.send_header(key, value)
+            for key, value in extra_headers:
                 self.send_header(key, value)
             if retry_after:
                 self.send_header("Retry-After", str(retry_after))
@@ -341,8 +405,113 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                 if not path.startswith("/api/"):
                     self.send(404, b'{"error":"Console page not found."}')
                     return
+                if path == "/api/kagnode-login":
+                    browser = next(
+                        (
+                            part.strip().split("=", 1)[1]
+                            for part in self.headers.get("Cookie", "").split(";")
+                            if part.strip().startswith("kagnode_httpboot_login=")
+                        ),
+                        "",
+                    )
+                    if self.command == "GET":
+                        if not re.fullmatch(r"[A-Za-z0-9_-]{43}", browser):
+                            browser = secrets.token_urlsafe(32)
+                        csrf = signins.csrf(browser) if signins else ""
+                        self.send(
+                            200,
+                            json.dumps(
+                                {
+                                    "enabled": bool(signins and signins.enabled()),
+                                    "csrf": csrf,
+                                }
+                            ).encode(),
+                            extra_headers=[
+                                (
+                                    "Set-Cookie",
+                                    "kagnode_httpboot_login="
+                                    + browser
+                                    + "; Path=/; HttpOnly; SameSite=Strict; Max-Age=600",
+                                )
+                            ],
+                        )
+                        return
+                    expected_csrf = signins.csrf(browser) if signins else ""
+                    if (
+                        self.command != "POST"
+                        or not signins
+                        or not browser
+                        or not hmac.compare_digest(
+                            expected_csrf, self.headers.get("X-CSRF-Token", "")
+                        )
+                        or self.headers.get("Sec-Fetch-Site")
+                        in ("cross-site", "same-site")
+                        or self.headers.get("Origin") not in (None, "http://" + host)
+                    ):
+                        self.send(
+                            403,
+                            b'{"error":"Reload the local console and use a same-origin request."}',
+                        )
+                        return
+                    lengths = self.headers.get_all("Content-Length", [])
+                    if (
+                        len(lengths) != 1
+                        or self.headers.get("Transfer-Encoding")
+                        or self.headers.get_content_type() != "application/json"
+                        or not 0 < int(lengths[0]) <= 4096
+                    ):
+                        raise ValueError("A bounded JSON sign-in request is required.")
+                    data = json.loads(self.rfile.read(int(lengths[0])))
+                    if not isinstance(data, dict):
+                        raise ValueError("Invalid sign-in request.")
+                    action, attempt = (
+                        data.get("action"),
+                        str(data.get("attempt_id", "")),
+                    )
+                    try:
+                        if action == "start":
+                            signins.rate(self.client_address[0])
+                            result = signins.start(browser, "http://" + host)
+                        elif action == "cancel":
+                            result = signins.cancel(browser, attempt)
+                        elif action == "status":
+                            result = signins.status(browser, attempt)
+                            if result.get("authorized"):
+                                identity = signins.verified(browser, attempt)
+                                if identity["local_id"] != "console-owner":
+                                    signins.cancel(browser, attempt)
+                                    raise AccountLinkError(
+                                        "Connect the existing console owner from Console access first. Public administrator signup is unavailable.",
+                                        403,
+                                    )
+                                profile = signins.finish(
+                                    browser, attempt, "console-owner"
+                                )
+                                result = {
+                                    "authorized": True,
+                                    "continuation": "console",
+                                    "console_session": web_sessions.issue(
+                                        profile["subject"]
+                                    ),
+                                    "expires_in": 1800,
+                                }
+                        else:
+                            raise ValueError("Invalid sign-in action.")
+                        self.send(200, json.dumps(result).encode())
+                    except AccountLinkError as error:
+                        self.send(
+                            error.status, json.dumps({"error": str(error)}).encode()
+                        )
+                    return
                 received = self.headers.get("Authorization", "").encode()
-                if not hmac.compare_digest(received, ("Bearer " + token).encode()):
+                bearer = self.headers.get("Authorization", "").removeprefix("Bearer ")
+                if not hmac.compare_digest(
+                    received, ("Bearer " + token).encode()
+                ) and not (
+                    web_sessions
+                    and self.headers.get("Authorization", "").startswith("Bearer ")
+                    and web_sessions.valid(bearer)
+                ):
                     self.send(401, b'{"error":"Local console credential required."}')
                     return
                 origin = self.headers.get("Origin")
@@ -354,6 +523,11 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                     self.send(
                         403, b'{"error":"Same-origin console requests are required."}'
                     )
+                    return
+                if path == "/api/console/logout" and self.command == "POST":
+                    if web_sessions:
+                        web_sessions.revoke(bearer)
+                    self.send(200, b'{"ok":true}')
                     return
                 if (
                     path == "/api/kagnode-account"
