@@ -8,11 +8,13 @@ Network boot, authenticated image delivery, desktop persistence and recovery too
 
 ## Release status
 
-Product source: **3.1.16-beta.3**. Packaging preview: **3.1.16-beta.3.packaging.8**.
+Product source: **3.1.16-beta.3**. Packaging preview: **3.1.16-beta.3.packaging.9**.
 
 Packaging prereleases do not change the latest stable release or establish new hardware or service compatibility. See [verification](docs/VERIFICATION.md) and [changelog](CHANGELOG.md).
 
 ## Features
+
+- Shared local sign-in and explicit Login with KagNode; local access and security requirements stay available. See [account sign-in](docs/ACCOUNT-SYNC.md).
 
 - Persistent branded download dialogs, bounded authenticated resume retries, verified kernel handoff checks and driver/link diagnostics.
 - A KagNode × Ubuntu desktop splash recipe with an explicit diagnostic-media option. New image and hardware qualification remain pending.

@@ -17,8 +17,13 @@
   </head>
   <body data-kn-account-app="httpboot" data-kn-manual-navigation class="kn-ui">
     <a class="skip-link" href="#main">Skip to content</a>
-    <div id="connect-screen" class="connect-screen">
-      <section class="connect-card">
+    <div
+      id="connect-screen"
+      class="connect-screen"
+      data-core-login
+      data-core-login-product="KagNode HTTP Boot"
+    >
+      <section class="connect-card kn-core-login-card">
         <a class="brand" href="/overview"
           ><svg viewBox="0 0 32 32" aria-hidden="true">
             <path d="M4 18C4 9 11 4 23 5L18 27C10 28 4 25 4 18Z" />
@@ -28,39 +33,49 @@
             ><small>HTTP Boot</small></span
           ></a
         >
-        <p class="eyebrow">Server console</p>
-        <h1>Connect to your Server.</h1>
-        <p>
-          Use the console credential created by the Server’s local tools. It
-          stays in this browser tab while the console is unlocked.
-        </p>
-        <form id="connect-form">
-          <label for="console-token">Console credential</label>
-          <div class="credential-field">
-            <input
-              id="console-token"
-              type="password"
-              autocomplete="off"
-              spellcheck="false"
-              required
-              minlength="32"
-              maxlength="100"
-            /><button
-              type="button"
-              id="reveal-token"
-              aria-label="Show console credential"
-            >
-              Show
+        <div class="kn-core-login-heading">
+          <p class="eyebrow">Server console</p>
+          <h1>Connect to your Server.</h1>
+          <p>
+            Use the console credential created by the Server’s local tools. It
+            stays in this browser tab while the console is unlocked.
+          </p>
+        </div>
+        <div class="kn-core-login-content">
+          <form id="connect-form">
+            <label for="console-token">Console credential</label>
+            <div class="credential-field">
+              <input
+                id="console-token"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                required
+                minlength="32"
+                maxlength="100"
+              /><button
+                type="button"
+                id="reveal-token"
+                aria-label="Show console credential"
+              >
+                Show
+              </button>
+            </div>
+            <p id="connect-error" class="error" role="alert" hidden></p>
+            <button class="button primary" type="submit">
+              Open console <span aria-hidden="true">→</span>
             </button>
-          </div>
-          <p id="connect-error" class="error" role="alert" hidden></p>
-          <button class="button primary" type="submit">
-            Open console <span aria-hidden="true">→</span>
+          </form>
+        </div>
+        <div class="kn-core-login-provider" id="provider-login" hidden>
+          <button type="button" data-core-login-provider disabled>
+            Login with KagNode
           </button>
-        </form>
+          <div data-core-login-status role="status"></div>
+        </div>
         <p class="connect-note">
-          This console manages HTTP Boot Clients. Your KagNode website account
-          is separate.
+          KagNode sign-in requires the console owner to connect their account
+          first. Local console credentials remain available offline.
         </p>
       </section>
     </div>
