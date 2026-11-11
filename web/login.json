@@ -1,0 +1,10 @@
+{
+  "target": "web/index.html",
+  "product": "KagNode. HTTP Boot",
+  "heading": "Sign in",
+  "description": "Use your account to continue to KagNode HTTP Boot.",
+  "id": "connect-screen",
+  "hidden": false,
+  "heading_id": "",
+  "description_id": ""
+}

@@ -1,4 +1,7 @@
 <!-- Retained operational documentation; historical version labels refer to their original release. -->
+
+Current **5.0.0** is the reviewed source/data and web-interface release. Native installation and qualification notes below retain their historical version labels; this release does not publish or qualify a new HTTP Boot image. See the current [release scope](../README.md#release-status) before choosing a download.
+
 <p align="center"><img src="../assets/kagnode-wordmark.svg" width="440" alt="KagNode. HTTP Boot"></p>
 
 # KagNode HTTP Boot

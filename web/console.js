@@ -592,7 +592,9 @@
   $("reveal-token").onclick = () => {
     const show = $("console-token").type === "password";
     $("console-token").type = show ? "text" : "password";
-    $("reveal-token").textContent = show ? "Hide" : "Show";
+    $("reveal-token").querySelector("[data-core-icon]").dataset.coreIcon = show
+      ? "eye-off"
+      : "eye";
     $("reveal-token").setAttribute(
       "aria-label",
       (show ? "Hide" : "Show") + " console credential",

@@ -8,9 +8,11 @@ Network boot, authenticated image delivery, desktop persistence and recovery too
 
 ## Release status
 
-Product source: **3.1.16-beta.3**. Packaging preview: **3.1.16-beta.3.packaging.9**.
+Product source: **5.0.0**. Stable source/data release: **5.0.0**.
 
-Packaging prereleases do not change the latest stable release or establish new hardware or service compatibility. See [verification](docs/VERIFICATION.md) and [changelog](CHANGELOG.md).
+KagNode 5 uses the same locally served Core login frame and action icons across applications. Existing local sign-in, explicit KagNode connection, profile-sync policy, local roles and storage formats are preserved. The stable assets are reviewed source/data packages and the independent web console. Builder revision, active Server/Client contracts, saved data and images stay compatible. No new desktop image, Client restart or hardware qualification is included.
+
+Earlier packaging prereleases remain available. The 5.0 stable release is limited to the verified source/data and web-interface scope; native and hardware evidence remains separate. See [verification](docs/VERIFICATION.md) and [changelog](CHANGELOG.md).
 
 ## Features
 
@@ -37,8 +39,8 @@ Download from [GitHub Releases](https://github.com/every-lemon/kagnode-httpboot/
 | Payload | Formats | Support |
 | --- | --- | --- |
 | Complete source / artwork | `.tar.xz`, `.tar.gz`, `.zip` | Named top-level directory; manual setup |
-| Source preview | `.deb` | Source only; does not provision a service |
-| Source preview | `.rpm` | Rocky Linux 10 packaging preview; native services unverified |
+| Source/data | `.deb` | Source only; does not provision a service |
+| Source/data | `.rpm` | Rocky Linux 10 source package; no native service qualification |
 
 Existing Server/Builder `.deb` and Builder installer workflows remain available.
 
@@ -61,7 +63,7 @@ Retain existing server authority, image stores and verified user saves. Source p
 
 ## Security
 
-Use HTTPS and least-privilege accounts for hosted services. Keep secrets and user data out of Git. Preview packages are for inspection and controlled testing; native service and hardware claims remain limited to recorded verification. See [security guidance](docs/SECURITY.md).
+Use HTTPS and least-privilege accounts for hosted services. Keep secrets and user data out of Git. Source/data packages support inspection and manual setup; native service and hardware claims remain limited to recorded verification. See [security guidance](docs/SECURITY.md).
 
 ## Development and testing
 

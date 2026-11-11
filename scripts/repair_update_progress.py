@@ -204,9 +204,8 @@ def display_state():
 
 def prepare_display(backup):
     before = display_state()
-    strong = (
-        lambda data: UNIT
-        in (data.get("Requires", "") + " " + data.get("BindsTo", "")).split()
+    strong = lambda data: (
+        UNIT in (data.get("Requires", "") + " " + data.get("BindsTo", "")).split()
     )
     if not strong(before):
         return before
