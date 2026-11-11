@@ -356,10 +356,8 @@ class LoginLifecycleTests(unittest.TestCase):
         self.agent.sessions = {}
         calls = []
         self.agent.worker = lambda uid, action: calls.append(action)
-        self.agent.call = (
-            lambda route, data=None: {"token": "fixture"}
-            if route == "/v2/sessions"
-            else {"ok": True}
+        self.agent.call = lambda route, data=None: (
+            {"token": "fixture"} if route == "/v2/sessions" else {"ok": True}
         )
         first = {"name": "alice", "login_id": "100:200"}
         second = {"name": "alice", "login_id": "101:201"}

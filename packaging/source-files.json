@@ -126,6 +126,7 @@
   "packaging/release.json",
   "packaging/source-files.json",
   "requirements-format.txt",
+  "scripts/build-login.py",
   "scripts/build-web.py",
   "scripts/check-docless-package.py",
   "scripts/check-migration.py",
@@ -171,6 +172,8 @@
   "tests/test_web_provider_login.py",
   "vendor/core-source/LICENSE",
   "vendor/core-source/assets/ARTWORK-LICENSE",
+  "vendor/core-source/assets/icon-aliases.json",
+  "vendor/core-source/assets/icon-library/source.mjs",
   "vendor/core-source/assets/icons.json",
   "vendor/core-source/assets/mark.svg",
   "vendor/core-source/assets/provenance.json",
@@ -204,5 +207,8 @@
   "web/kagnode-account.js",
   "web/kagnode-scroll.css",
   "web/kagnode-scroll.js",
-  "web/kagnode-ui.css"
+  "web/kagnode-ui.css",
+  "web/login-content.html",
+  "web/login-provider.html",
+  "web/login.json"
 ]

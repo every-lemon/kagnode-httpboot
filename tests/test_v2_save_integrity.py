@@ -205,9 +205,9 @@ class SaveQueueTests(unittest.TestCase):
                 patch.object(
                     client_worker,
                     "rpc",
-                    side_effect=lambda action, **_: state
-                    if action == "state"
-                    else {"ok": True},
+                    side_effect=lambda action, **_: (
+                        state if action == "state" else {"ok": True}
+                    ),
                 ),
                 patch.object(client_worker.Path, "home", return_value=home),
                 patch.object(

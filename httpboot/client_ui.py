@@ -17,7 +17,7 @@ def main():
             super().__init__(title="HTTP Boot")
             self.set_default_size(1040, 720)
             self.set_size_request(760, 520)
-            self.connect("delete-event", lambda window, event: (window.hide() or True))
+            self.connect("delete-event", lambda window, event: window.hide() or True)
             self.state = {}
             self.logs = []
             self.errors = []

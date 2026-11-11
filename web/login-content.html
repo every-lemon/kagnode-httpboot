@@ -1,0 +1,28 @@
+<form id="connect-form">
+  <div class="kn-core-login-field">
+    <label for="console-token">Console credential</label>
+    <div class="kn-core-login-secret">
+      <input
+        id="console-token"
+        type="password"
+        autocomplete="off"
+        spellcheck="false"
+        required
+        minlength="32"
+        maxlength="100"
+      /><button
+        type="button"
+        id="reveal-token"
+        aria-label="Show console credential"
+      >
+        <span data-core-icon="eye" aria-hidden="true"></span>
+      </button>
+    </div>
+  </div>
+  <p id="connect-error" class="error" role="alert" hidden></p>
+  <button type="submit" data-core-login-submit>Open console</button>
+</form>
+<p>
+  Connect a KagNode account from console access settings first. Your local
+  console credential remains available offline.
+</p>
