@@ -20,6 +20,8 @@ jobs:
         run: /usr/bin/python3 -m unittest discover -s tests -p 'test_v2*.py' -v
       - name: Web provider authorization
         run: /usr/bin/python3 -m unittest discover -s tests -p test_web_provider_login.py -v
+      - name: Browser callback security regressions
+        run: /usr/bin/python3 -m unittest discover -s tests -p test_browser_login.py -v
       - name: Server administration CLI
         run: sudo /usr/bin/python3 -m unittest discover -s tests -p test_v2_server_cli.py -v
       - name: Packages
@@ -43,3 +45,4 @@ jobs:
           cd build/public
           /usr/bin/python3 -m unittest discover -s tests -p 'test_v2*.py' -v
           /usr/bin/python3 -m unittest discover -s tests -p test_web_provider_login.py -v
+          /usr/bin/python3 -m unittest discover -s tests -p test_browser_login.py -v
