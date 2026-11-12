@@ -37,6 +37,8 @@
     lastRender = "",
     accountSignature = "";
   let editingClient = null;
+  let providerIssuer = "https://nebulacoder.com",
+    providerReady = false;
   let providerEnabled = false,
     providerCsrf = "";
   async function providerState() {
@@ -46,13 +48,19 @@
     });
     if (!response.ok) throw Error("Provider unavailable.");
     const data = await response.json();
+    providerIssuer = data.issuer;
+    providerReady = true;
     providerEnabled = data.enabled === true;
     providerCsrf = data.csrf;
     $("provider-login").hidden = !providerEnabled;
     window.KagNodeLogin?.refresh();
   }
   window.KagNodeLoginHost = {
-    state: () => ({ enabled: providerEnabled }),
+    state: () => ({
+      issuer: providerIssuer,
+      ready: providerReady,
+      enabled: providerEnabled,
+    }),
     request: async (action, data) => {
       if (action === "start") await providerState();
       const response = await fetch("/api/kagnode-login", {

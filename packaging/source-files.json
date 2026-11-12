@@ -141,6 +141,7 @@
   "tests/browser_account_link.py",
   "tests/browser_provider.py",
   "tests/test_account_sync.py",
+  "tests/test_browser_login.py",
   "tests/test_repository_release.py",
   "tests/test_v2_authority.py",
   "tests/test_v2_boot.py",

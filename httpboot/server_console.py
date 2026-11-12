@@ -13,7 +13,7 @@ import sqlite3
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as BaseHTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs, urlencode
 from common import atomic
 from control_transport import issue, storage_failure
 from server_web_assets import HTML, ASSETS, UI_VERSION
@@ -402,6 +402,42 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                         ).encode(),
                     )
                     return
+                if self.command == "GET" and path == "/auth/kagnode/callback":
+                    target = {"kagnode_error": "invalid"}
+                    try:
+                        query = parse_qs(
+                            urlsplit(self.path).query,
+                            keep_blank_values=True,
+                            max_num_fields=8,
+                        )
+                        if (
+                            len(self.path) > 4096
+                            or not signins
+                            or any(len(values) != 1 for values in query.values())
+                        ):
+                            raise ValueError("Invalid callback.")
+                        browser = next(
+                            (
+                                part.strip().split("=", 1)[1]
+                                for part in self.headers.get("Cookie", "").split(";")
+                                if part.strip().startswith("kagnode_httpboot_login=")
+                            ),
+                            "",
+                        )
+                        attempt = signins.callback(
+                            browser,
+                            query.get("state", [""])[0],
+                            query.get("iss", [""])[0],
+                            query.get("code", [""])[0],
+                            query.get("error", [""])[0],
+                        )
+                        target = {"kagnode_attempt": attempt}
+                    except (ValueError, AccountLinkError):
+                        pass
+                    self.send(
+                        303, b"", extra_headers=[("Location", "/?" + urlencode(target))]
+                    )
+                    return
                 if not path.startswith("/api/"):
                     self.send(404, b'{"error":"Console page not found."}')
                     return
@@ -422,6 +458,9 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                             200,
                             json.dumps(
                                 {
+                                    "issuer": profile_links.issuer
+                                    if profile_links
+                                    else "https://nebulacoder.com",
                                     "enabled": bool(signins and signins.enabled()),
                                     "csrf": csrf,
                                 }
@@ -431,7 +470,7 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                                     "Set-Cookie",
                                     "kagnode_httpboot_login="
                                     + browser
-                                    + "; Path=/; HttpOnly; SameSite=Strict; Max-Age=600",
+                                    + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=600",
                                 )
                             ],
                         )
@@ -471,7 +510,7 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                     try:
                         if action == "start":
                             signins.rate(self.client_address[0])
-                            result = signins.start(browser, "http://" + host)
+                            result = signins.start_browser(browser, "http://" + host)
                         elif action == "cancel":
                             result = signins.cancel(browser, attempt)
                         elif action == "status":

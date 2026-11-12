@@ -4,7 +4,7 @@
   "version_pattern": "VERSION = [\\\"']([^\\\"']+)[\\\"']",
   "kind": "application",
   "license": "AGPL-3.0-only",
-  "revision": 10,
+  "revision": 11,
   "channel": "stable",
   "upgrade_fixture_version": "3.1.16-beta.3.packaging.9"
 }

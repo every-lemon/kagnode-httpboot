@@ -48,6 +48,15 @@ class WebProviderTests(unittest.TestCase):
             connection.close()
 
     def transport(self, method, endpoint, data=None, token=None):
+        if endpoint == "browser/start":
+            self.device = data
+            return {
+                "request_id": "Q" * 43,
+                "authorization_uri": self.links.issuer
+                + "/oauth/authorize?request="
+                + "Q" * 43,
+                "expires_in": 600,
+            }
         if endpoint == "device":
             self.device = data
             return {
@@ -127,6 +136,23 @@ class WebProviderTests(unittest.TestCase):
         self.provider()
         status, started = self.provider({"action": "start"})
         self.assertEqual(status, 200, started)
+        from urllib.parse import urlencode
+
+        status, headers, raw = self.request(
+            "GET",
+            "/auth/kagnode/callback?"
+            + urlencode(
+                {
+                    "state": self.device["state"],
+                    "iss": self.links.issuer,
+                    "code": "C" * 43,
+                }
+            ),
+            headers={"Cookie": self.cookie},
+        )
+        self.assertEqual(status, 303, raw)
+        self.assertEqual(headers["Cache-Control"], "no-store")
+        self.assertEqual(headers["Referrer-Policy"], "no-referrer")
         return self.provider({"action": "status", "attempt_id": started["attempt_id"]})
 
     def test_provider_session_requires_existing_owner_and_never_leaks_original_credential(
