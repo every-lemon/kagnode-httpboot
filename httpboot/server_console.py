@@ -595,16 +595,56 @@ def serve(authority, pki, port=8081, credential_name="console-token"):
                         self.send(405, b'{"error":"Method not allowed."}')
                         return
                     try:
-                        result = profile_links.handle(
-                            "console-owner",
-                            "Server administrator",
-                            True,
-                            ("core." + path.rsplit("/", 1)[-1])
-                            if path.startswith("/api/v1/kagnode-core/")
-                            else str(data.get("action", "state")),
-                            data,
-                            "http://" + host,
-                        )
+                        if path in (
+                            "/api/v1/kagnode-core/whats-new",
+                            "/api/v1/kagnode-core/whats-new/dismiss",
+                        ):
+                            dismissal = path.endswith("/dismiss")
+                            if self.command != ("POST" if dismissal else "GET"):
+                                self.send(405, b'{"error":"Method not allowed."}')
+                                return
+                            try:
+                                result = (
+                                    kagnode_core.dismiss_notice(
+                                        "httpboot",
+                                        "console-owner",
+                                        data.get("id"),
+                                        profile_links.notice_dismiss,
+                                    )
+                                    if dismissal
+                                    else kagnode_core.read_notice(
+                                        "httpboot",
+                                        "console-owner",
+                                        profile_links.notice_is_dismissed,
+                                    )
+                                )
+                            except ValueError:
+                                self.send(
+                                    400,
+                                    b'{"error":"This update summary is no longer available."}',
+                                )
+                                return
+                            self.send(200, json.dumps(result).encode())
+                            return
+                        if path.startswith("/api/v1/kagnode-core/"):
+                            action = path.removeprefix("/api/v1/kagnode-core/")
+                            if self.command != (
+                                "GET" if action == "status" else "POST"
+                            ):
+                                self.send(405, b'{"error":"Method not allowed."}')
+                                return
+                            result = kagnode_core.manager_request(
+                                "httpboot", action, data
+                            )
+                        else:
+                            result = profile_links.handle(
+                                "console-owner",
+                                "Server administrator",
+                                True,
+                                str(data.get("action", "state")),
+                                data,
+                                "http://" + host,
+                            )
                         self.send(200, json.dumps(result).encode())
                     except AccountLinkError as error:
                         self.send(
