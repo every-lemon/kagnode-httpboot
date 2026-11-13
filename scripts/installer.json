@@ -1,0 +1,53 @@
+{
+  "platforms": [
+    [
+      "ubuntu",
+      "24.04"
+    ]
+  ],
+  "architectures": [
+    "x86_64",
+    "aarch64"
+  ],
+  "required_paths": [
+    "data",
+    "configuration"
+  ],
+  "dependencies": [
+    "systemctl",
+    "python3"
+  ],
+  "warnings": [
+    "Only the listed application or native setup is performed. Existing data is never reset.",
+    "Setup requires local administrator review; source/data package installation alone does not start services."
+  ],
+  "kind": "native",
+  "user": "root",
+  "fields": [],
+  "paths": {
+    "code": "/opt/kagnode/httpboot",
+    "configuration": "/var/lib/kagnode/httpboot-server/authority.sqlite3",
+    "data": "/var/lib/kagnode/httpboot-server",
+    "unit": "/etc/systemd/system/httpboot-server.service"
+  },
+  "units": [
+    "httpboot-server"
+  ],
+  "health_scope": "Existing Server service and authority presence. No Client, Builder, image, firmware or hardware qualification.",
+  "installed_entrypoint": "/usr/sbin/httpboot-server",
+  "interactive": true,
+  "entrypoint": [
+    "/usr/sbin/httpboot-server",
+    "setup"
+  ],
+  "manual_steps": [
+    "The native Server package and initialized authority must already exist. The existing setup console is interactive."
+  ],
+  "changes": [
+    "Open the installed Server setup console in a real terminal",
+    "Do not install a Builder, build an image, create boot media or replace existing Server data automatically",
+    "Verify the existing Server service after the console exits"
+  ],
+  "project": "httpboot",
+  "version": "5.0.2"
+}

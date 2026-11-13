@@ -2,7 +2,7 @@
 
 import re
 
-VERSION = "5.0.1"
+VERSION = "5.0.2"
 BUILDER_REVISION = "3.1.15-dev8"
 _VERSION = re.compile(
     r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(beta|rc)\.([1-9][0-9]*))?"

@@ -441,6 +441,11 @@
         sessionStorage.removeItem("token");
       } catch {}
       $("connect-error").hidden = true;
+      $("connect-screen")
+        .querySelector("form")
+        ?.dispatchEvent(
+          new CustomEvent("kagnode:form-saved", { bubbles: true }),
+        );
       $("connect-screen").hidden = true;
       $("workspace").hidden = false;
       $("loading").hidden = true;
